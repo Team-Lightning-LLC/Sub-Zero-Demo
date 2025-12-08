@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sub Zero Demo</title>
+  <title>Sub-Zero </title>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
@@ -193,7 +193,7 @@
       API_KEY: 'sk-780d20f68cd5c5b0682baee88db0af70',
       ENVIRONMENT_ID: '681915c6a01fb262a410c161',
       MODEL: 'claude-sonnet-4',
-      INTERACTION: 'DocumentChat'
+      INTERACTION: 'Document-Chat'
     };
 
     // ============================================
@@ -424,19 +424,38 @@
           })
         });
 
-        const { workflowId, runId } = response;
+        console.log('[Chat] Execute response:', response);
+
+        // Handle different response formats
+        let workflowId = response.workflowId || response.workflow_id;
+        let runId = response.runId || response.run_id || response.id;
         
-        // Stream the response
-        const answer = await streamResponse(workflowId, runId, typingId);
-        
-        // Update conversation history
-        conversationHistory.push({ role: 'user', content: question });
-        conversationHistory.push({ role: 'assistant', content: answer });
+        // If response has a result directly, use it
+        if (response.result || response.output || response.text || response.content) {
+          removeTyping(typingId);
+          const answer = response.result || response.output || response.text || response.content;
+          addMessage(answer, 'assistant');
+          conversationHistory.push({ role: 'user', content: question });
+          conversationHistory.push({ role: 'assistant', content: answer });
+          return;
+        }
+
+        // If we have workflow info, try streaming
+        if (workflowId && runId) {
+          const answer = await streamResponse(workflowId, runId, typingId);
+          conversationHistory.push({ role: 'user', content: question });
+          conversationHistory.push({ role: 'assistant', content: answer });
+        } else {
+          // Try polling the run status
+          console.log('[Chat] No workflow/run IDs, checking response structure...');
+          removeTyping(typingId);
+          addMessage('Request sent. The Document-Chat interaction may need to be configured in Vertesia.', 'assistant');
+        }
 
       } catch (error) {
         console.error('[Chat] Error:', error);
         removeTyping(typingId);
-        addMessage('Sorry, I encountered an error. Please try again.', 'assistant');
+        addMessage(`Error: ${error.message}. Make sure the "Document-Chat" interaction exists in Vertesia.`, 'assistant');
       } finally {
         isLoading = false;
         document.getElementById('sendBtn').disabled = false;
@@ -444,7 +463,17 @@
     }
 
     async function streamResponse(workflowId, runId, typingId) {
-      const url = `${CONFIG.BASE_URL}/workflows/${workflowId}/runs/${runId}/stream`;
+      // Build URL - handle if workflowId is already a path
+      let url;
+      if (workflowId.startsWith('http')) {
+        url = workflowId;
+      } else if (workflowId.includes('/')) {
+        url = `${CONFIG.BASE_URL}/${workflowId}/runs/${runId}/stream`;
+      } else {
+        url = `${CONFIG.BASE_URL}/workflows/${workflowId}/runs/${runId}/stream`;
+      }
+      
+      console.log('[Stream] URL:', url);
       
       try {
         const response = await fetch(url, {
@@ -453,6 +482,10 @@
             'Accept': 'text/event-stream'
           }
         });
+
+        if (!response.ok) {
+          throw new Error(`Stream failed: ${response.status} ${response.statusText}`);
+        }
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -470,12 +503,26 @@
             if (line.startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.slice(6));
+                console.log('[Stream] Data:', data);
                 
-                if (data.type === 'content' || data.content || data.text || data.delta) {
-                  const text = data.content || data.text || data.delta || '';
+                // Try multiple possible content fields
+                const text = data.content || data.text || data.delta || data.message || 
+                            (data.choices?.[0]?.delta?.content) || (data.choices?.[0]?.message?.content) || '';
+                
+                if (text) {
                   fullText += text;
 
-                  // Remove typing, show/update message
+                  if (!messageEl) {
+                    removeTyping(typingId);
+                    messageEl = addMessage(fullText, 'assistant', true);
+                  } else {
+                    updateMessage(messageEl, fullText);
+                  }
+                }
+                
+                // Check for completion
+                if (data.result || data.output) {
+                  fullText = data.result || data.output;
                   if (!messageEl) {
                     removeTyping(typingId);
                     messageEl = addMessage(fullText, 'assistant', true);
@@ -484,16 +531,15 @@
                   }
                 }
               } catch (e) {
-                // Skip non-JSON lines
+                // Non-JSON line, skip
               }
             }
           }
         }
 
-        // If no streaming content, check for final result
         if (!fullText) {
           removeTyping(typingId);
-          fullText = 'I found relevant information in the documentation. How can I help further?';
+          fullText = 'Response completed. Check the documents for details.';
           addMessage(fullText, 'assistant');
         }
 
@@ -502,11 +548,8 @@
       } catch (error) {
         console.error('[Stream] Error:', error);
         removeTyping(typingId);
-        
-        // Fallback: try non-streaming
-        const fallbackText = 'Response received. Please check the documents for details.';
-        addMessage(fallbackText, 'assistant');
-        return fallbackText;
+        addMessage(`Stream error: ${error.message}`, 'assistant');
+        return '';
       }
     }
 
