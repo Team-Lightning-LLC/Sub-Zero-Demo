@@ -1,0 +1,1334 @@
+import React, { useState, useRef, useEffect } from 'react';
+
+// Vertesia API Configuration
+const VERTESIA_CONFIG = {
+  BASE_URL: 'https://api.vertesia.io/api/v1',
+  API_KEY: 'sk-780d20f68cd5c5b0682baee88db0af70',
+  ENVIRONMENT_ID: '681915c6a01fb262a410c161',
+  MODEL: 'claude-sonnet-4'
+};
+
+// Document metadata - update these IDs after upload to Vertesia
+const DOCUMENTS = [
+  { id: 'doc_1', name: 'Equipment Datasheet', shortName: 'Datasheet', docNumber: 'DS-CB200-001', color: '#3B82F6' },
+  { id: 'doc_2', name: 'Safety Procedures', shortName: 'Safety', docNumber: 'SAF-CB200-001', color: '#EF4444' },
+  { id: 'doc_3', name: 'PM Work Instructions', shortName: 'PM Instructions', docNumber: 'PM-CB200-001', color: '#10B981' },
+  { id: 'doc_4', name: 'Troubleshooting Guide', shortName: 'Troubleshooting', docNumber: 'TSG-FOAM-001', color: '#F59E0B' },
+  { id: 'doc_5', name: 'Spare Parts Catalog', shortName: 'Parts', docNumber: 'SPC-CB200-001', color: '#8B5CF6' },
+  { id: 'doc_6', name: 'Service Bulletin SB-2024-03', shortName: 'Service Bulletin', docNumber: 'SB-2024-03', color: '#EC4899' },
+];
+
+// Icons as components
+const ChevronLeft = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="15 18 9 12 15 6"></polyline>
+  </svg>
+);
+
+const ChevronRight = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="9 18 15 12 9 6"></polyline>
+  </svg>
+);
+
+const SendIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="22" y1="2" x2="11" y2="13"></line>
+    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+  </svg>
+);
+
+const FileText = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+    <polyline points="14 2 14 8 20 8"></polyline>
+    <line x1="16" y1="13" x2="8" y2="13"></line>
+    <line x1="16" y1="17" x2="8" y2="17"></line>
+    <polyline points="10 9 9 9 8 9"></polyline>
+  </svg>
+);
+
+const Loader = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-spin">
+    <circle cx="12" cy="12" r="10" strokeOpacity="0.25"></circle>
+    <path d="M12 2a10 10 0 0 1 10 10" strokeOpacity="1"></path>
+  </svg>
+);
+
+const BookOpen = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+  </svg>
+);
+
+export default function MaintenanceDocChat() {
+  const [selectedDocIndex, setSelectedDocIndex] = useState(0);
+  const [documentContent, setDocumentContent] = useState('');
+  const [documentLoading, setDocumentLoading] = useState(false);
+  const [messages, setMessages] = useState([
+    {
+      role: 'assistant',
+      content: "Hello! I'm your CB-200 Cabinet Foaming Station assistant. I have access to all equipment documentation including specs, safety procedures, PM instructions, troubleshooting guides, spare parts, and service bulletins.\n\nWhat would you like to know?",
+      sources: []
+    }
+  ]);
+  const [inputValue, setInputValue] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
+  const chatEndRef = useRef(null);
+  const documentViewerRef = useRef(null);
+
+  // Sample document content for demo (replace with actual API fetch)
+  const sampleDocuments = {
+    0: `# CB-200 Cabinet Foaming Station
+## Equipment Datasheet
+
+**Document Number:** DS-CB200-001  
+**Revision:** 2.3  
+**Effective Date:** March 15, 2024  
+**Manufacturer:** Cannon Viking Ltd.  
+**Classification:** Production Equipment - Insulation Systems
+
+---
+
+## Section 1: General Information
+
+### 1.1 Equipment Description
+
+The CB-200 Cabinet Foaming Station is a high-pressure polyurethane foam injection system designed for insulating refrigerator and freezer cabinet assemblies. The system precisely meters and mixes two-component polyurethane chemicals (polyol and isocyanate) and injects the reactive mixture into cabinet cavities where it expands to form closed-cell insulation foam.
+
+### 1.2 Intended Use
+
+This equipment is designed for continuous production environments requiring consistent, high-quality foam insulation. The CB-200 is optimized for cabinet volumes ranging from 8 to 25 cubic feet, making it suitable for residential refrigerator, freezer, and commercial display case production.
+
+### 1.3 Equipment Identification
+
+| Field | Value |
+|-------|-------|
+| Model Number | CB-200 |
+| Serial Number Range | CB200-1000 through CB200-5000 |
+| Year of Manufacture | 2018-2024 |
+| Plant Location | Fitchburg Building 2, Line 4 |
+| Asset Tag | FIT-B2-FOAM-004 |
+| Maximo Asset ID | 10042851 |
+
+---
+
+## Section 2: Technical Specifications
+
+### 2.1 Operating Parameters
+
+| Parameter | Specification | Tolerance |
+|-----------|---------------|-----------|
+| Injection Pressure | 2,500 PSI | ±100 PSI |
+| Chemical Temperature | 72°F | ±3°F |
+| Mold Temperature | 95-105°F | ±5°F |
+| Mix Ratio (A:B by weight) | 100:105 | ±1% |
+| Cycle Time | 45-60 seconds | Application dependent |
+| Shot Weight Range | 800g - 2,400g | ±3% |
+| Throughput Capacity | 60 cabinets/hour | At nominal cycle |
+| Foam Density (free rise) | 1.8-2.0 lb/ft³ | Per chemistry spec |
+
+### 2.2 Utility Requirements
+
+| Utility | Specification | Notes |
+|---------|---------------|-------|
+| Electrical Supply | 480V 3-phase, 60Hz | 60A service required |
+| Compressed Air | 90 PSI minimum | 10 CFM continuous |
+| Chilled Water | 55-60°F | 5 GPM for TCU |
+| Floor Drain | 2" minimum | Within 10 ft of equipment |
+| Ventilation | 500 CFM exhaust | At mix head location |
+
+### 2.3 Physical Specifications
+
+| Dimension | Value |
+|-----------|-------|
+| Footprint (L x W) | 12 ft x 8 ft |
+| Height | 9 ft (to top of day tanks) |
+| Weight (dry) | 4,200 lbs |
+| Weight (operational) | 6,800 lbs |
+
+---
+
+## Section 3: Major Components
+
+### 3.1 Chemical Metering System
+
+**A-Side (Polyol) Circuit:**
+- Day tank: 100-gallon capacity, stainless steel
+- Metering pump: Graco Hydraulic Piston Pump, 10:1 ratio
+- Recirculation pump: Pneumatic diaphragm, 5 GPM
+- Heat exchanger: Shell and tube, 10 kW capacity
+- Filter: 100-mesh strainer with bypass indicator
+
+**B-Side (Isocyanate) Circuit:**
+- Day tank: 80-gallon capacity, stainless steel with nitrogen blanket
+- Metering pump: Graco Hydraulic Piston Pump, 10:1 ratio
+- Recirculation pump: Pneumatic diaphragm, 5 GPM
+- Heat exchanger: Shell and tube, 8 kW capacity
+- Filter: 100-mesh strainer with bypass indicator`,
+
+    1: `# CB-200 Cabinet Foaming Station
+## Safety Procedures
+
+**Document Number:** SAF-CB200-001  
+**Revision:** 3.1  
+**Effective Date:** January 8, 2024  
+**Classification:** SAFETY CRITICAL  
+**Review Required:** All maintenance personnel before servicing
+
+---
+
+## Section 1: Hazard Summary
+
+### 1.1 Primary Hazards
+
+| Hazard Type | Risk Level | Location |
+|-------------|------------|----------|
+| Chemical Exposure (Isocyanate) | **HIGH** | B-side tank, lines, mix head |
+| Chemical Exposure (Polyol) | MEDIUM | A-side tank, lines, mix head |
+| High Pressure Injection | **HIGH** | Chemical lines, mix head |
+| Hydraulic Energy | **HIGH** | HPU, cylinders, hoses |
+| Mechanical Pinch Points | **HIGH** | Mix head, robot arm, fixture clamps |
+| Electrical Shock | MEDIUM | Control panel, junction boxes |
+| Thermal Burns | MEDIUM | Heat exchangers, TCU, mold |
+| Slip/Trip/Fall | LOW | Chemical spills, hoses |
+
+### 1.2 Health Hazards - Isocyanate (MDI)
+
+Methylene diphenyl diisocyanate (MDI) is the primary health hazard associated with this equipment.
+
+**Exposure Routes:**
+- Inhalation of vapors or aerosols
+- Skin contact with liquid
+- Eye contact
+
+**Health Effects:**
+- Respiratory sensitization (occupational asthma)
+- Skin sensitization (contact dermatitis)
+- Eye irritation and damage
+- Respiratory tract irritation
+
+**IMPORTANT:** Once sensitized to isocyanates, workers may react to extremely low concentrations. Sensitization is typically permanent and may require permanent reassignment away from isocyanate work areas.
+
+---
+
+## Section 2: Personal Protective Equipment
+
+### 2.1 Routine Operation (No Chemical Contact Expected)
+
+| PPE Item | Specification |
+|----------|---------------|
+| Safety glasses | ANSI Z87.1 rated |
+| Steel-toe boots | ASTM F2413 rated |
+| Hearing protection | NRR 25 or greater (foam area >85 dB) |
+| Long pants and sleeves | No shorts or short sleeves in foam area |
+
+### 2.2 Chemical Handling and Line Breaks
+
+| PPE Item | Specification | Part Number |
+|----------|---------------|-------------|
+| Full-face respirator | 3M 6000 series with organic vapor/P100 | 3M-6800-OV |
+| **OR** Supplied air respirator | Required for entry into tanks or confined spaces | SAR-CB200-KIT |
+| Chemical splash goggles | Indirect vent, ANSI Z87.1 | GOG-CHEM-01 |
+| Nitrile gloves | 8 mil minimum, 12" length | GLV-NIT-8MIL |
+| Tyvek coveralls | Type 5/6, hooded | TVK-SUIT-LG |
+| Chemical-resistant boots | Nitrile or PVC | BOOT-CHEM-01 |
+
+---
+
+## Section 3: Lockout/Tagout Procedures
+
+### 3.1 Energy Sources
+
+| Energy Type | Source | Isolation Point | Verification |
+|-------------|--------|-----------------|--------------|
+| Electrical (480V) | Main panel | Disconnect CB-200-MN | Verify 0V at motor terminals |
+| Electrical (120V) | Control power | Disconnect CB-200-CP | Verify HMI is dark |
+| Pneumatic | Plant air | Ball valve AV-CB200-01 | Verify 0 PSI on gauge |
+| Hydraulic | HPU accumulator | Bleed valve HV-CB200-01 | Cycle mix head 3x, verify 0 PSI |
+| Chemical A-side | Polyol supply | Ball valve CV-CB200-A1 | Close and tag |
+| Chemical B-side | Isocyanate supply | Ball valve CV-CB200-B1 | Close and tag |
+| Thermal | TCU | Power disconnect at TCU | Allow 30 min cool-down |
+
+### 3.2 LOTO Procedure - Full System Shutdown
+
+**Required Locks:** Minimum 6 locks for full system isolation
+
+**Procedure:**
+
+1. **Notify** production supervisor and affected personnel
+2. **Complete** current cycle and stop automatic operation
+3. **Press** E-STOP and verify machine stopped
+4. **Disconnect** main electrical (CB-200-MN) - Apply lock and tag - Attempt restart to verify
+5. **Disconnect** control power (CB-200-CP) - Apply lock and tag
+6. **Close** pneumatic isolation valve (AV-CB200-01) - Apply lock and tag - Bleed air lines by cycling valves
+7. **Bleed** hydraulic system - Close pump isolation valve - Open bleed valve HV-CB200-01 - Cycle mix head manually 3 times - Verify pressure gauge reads 0 - Apply lock and tag
+8. **Close** chemical supply valves (CV-CB200-A1 and CV-CB200-B1) - Apply locks and tags`,
+
+    2: `# CB-200 Cabinet Foaming Station
+## Preventive Maintenance Work Instructions
+
+**Document Number:** PM-CB200-001  
+**Revision:** 4.2  
+**Effective Date:** February 1, 2024  
+**Maximo Job Plan:** JP-CB200-PM  
+**Classification:** Maintenance Procedure
+
+---
+
+## Section 1: Overview
+
+### 1.1 Purpose
+
+This document provides step-by-step preventive maintenance procedures for the CB-200 Cabinet Foaming Station. Following these procedures ensures equipment reliability, product quality, and safe operation.
+
+### 1.2 Prerequisites
+
+Before performing any PM task:
+- [ ] Review SAF-CB200-001 (Safety Procedures)
+- [ ] Obtain required PPE
+- [ ] Verify LOTO as required for task
+- [ ] Notify production of maintenance activity
+- [ ] Open Maximo work order
+
+---
+
+## Section 2: Daily PM Tasks (Each Shift)
+
+**Time Required:** 15-20 minutes  
+**LOTO Required:** No (performed during operation)  
+**PPE:** Safety glasses, hearing protection, nitrile gloves
+
+### Task D-1: Chemical Tank Level Check
+
+**Frequency:** Start of each shift  
+**Specification:** Minimum 25% capacity
+
+**Procedure:**
+1. Visually inspect A-side (polyol) tank level gauge - Minimum level: 25 gallons (25% mark)
+2. Visually inspect B-side (isocyanate) tank level gauge - Minimum level: 20 gallons (25% mark)
+3. Check nitrogen blanket pressure on B-side tank - Acceptable range: 2-5 PSI
+4. Record levels in shift log
+
+### Task D-2: Mix Head Inspection
+
+**Frequency:** Start of each shift and every 2 hours  
+**Specification:** No visible foam buildup; clean operation
+
+**Procedure:**
+1. Visually inspect mix head nozzle area
+2. Check for foam residue or drips
+3. If buildup present, schedule cleaning at next break
+4. Verify mix head moves freely (no binding)
+
+### Task D-3: Temperature Verification
+
+**Frequency:** Start of shift and every 4 hours  
+**Specification:** 70-75°F (±2°F tolerance)
+
+**Procedure:**
+1. Check HMI temperature display
+   - A-side temp: 72°F ±2°F
+   - B-side temp: 72°F ±2°F
+   - TCU supply: 72°F ±2°F
+2. If temperature out of range, check TCU operation
+
+---
+
+## Section 3: Weekly PM Tasks
+
+**Time Required:** 45-60 minutes  
+**LOTO Required:** Partial (varies by task)
+
+### Task W-1: Mix Head Lubrication
+
+**Frequency:** Weekly (Friday day shift)  
+**Specification:** 2-3 pumps lithium grease at each point  
+**LOTO:** Required - hydraulic system
+
+**Procedure:**
+1. Lock out hydraulic system per SAF-CB200-001 Section 3.3
+2. Locate grease fittings on mix head pivot assembly (4 points)
+3. Clean grease fitting with rag before attaching gun
+4. Apply 2-3 pumps of lithium grease (Mobilux EP2 or equivalent)
+5. Wipe excess grease
+6. Manually cycle mix head to distribute grease
+
+### Task W-3: Pressure Verification
+
+**Frequency:** Weekly  
+**Specification:** A-side: 2,400-2,600 PSI / B-side: 2,400-2,600 PSI
+
+---
+
+## Section 4: Monthly PM Tasks
+
+**Time Required:** 2-3 hours  
+**LOTO Required:** Yes - full system
+
+### Task M-1: Mix Head Seal Replacement
+
+**Frequency:** Monthly or every 75,000 cycles (per SB-2024-03)  
+**Part Required:** CVK-2200-SEAL  
+**LOTO:** Required - full system
+
+**Procedure:**
+1. Apply full system LOTO per SAF-CB200-001 Section 3.2
+2. Relieve all chemical pressure at mix head
+3. Remove mix head from mounting (4 bolts)
+4. Disassemble mix head and inspect all seals
+5. Install new seals from kit CVK-2200-SEAL
+6. Reassemble and verify operation`,
+
+    3: `# Polyurethane Foaming Systems
+## Troubleshooting Guide
+
+**Document Number:** TSG-FOAM-001  
+**Revision:** 5.0  
+**Effective Date:** November 15, 2023  
+**Applicable Equipment:** CB-200, CB-300, CB-400 Series  
+**Classification:** Technical Reference
+
+---
+
+## Section 1: How to Use This Guide
+
+### 1.1 Troubleshooting Methodology
+
+1. **Identify** the symptom clearly
+2. **Locate** the symptom in this guide
+3. **Work through** possible causes in order listed (most common first)
+4. **Verify** each potential cause before proceeding to next
+5. **Document** findings and resolution in Maximo
+
+---
+
+## Section 2: Foam Quality Problems
+
+### Problem 2.1: Incomplete Foam Fill (Voids in Cabinet)
+
+**Symptoms:**
+- Hollow areas detected during quality check
+- Cabinet weight below target
+- Visible gaps in foam when cut open
+- Thermal performance failure
+
+**Possible Causes and Resolutions:**
+
+| Priority | Cause | Resolution |
+|----------|-------|------------|
+| 1 | Mix ratio out of specification | Calibrate ratio controller per Task M-2 |
+| 2 | Chemical temperature too low | Adjust TCU setpoint; verify chemicals at 70-75°F |
+| 3 | Injection time too short | Increase injection time by 2-3 seconds |
+| 4 | Clogged mix head | Disassemble and clean mix head; replace seals |
+| 5 | Air in chemical lines | Bleed air from system; check for suction leaks |
+| 6 | Insufficient shot weight | Increase shot weight; check pump calibration |
+| 7 | Cabinet leak | Repair fixture clamps; reject leaking cabinets |
+
+**Root Cause Notes:**
+- Voids near injection point suggest mix head problems
+- Voids at extremities suggest insufficient fill
+- Random voids suggest air entrainment or ratio problems
+
+---
+
+### Problem 2.2: Foam Leaking from Cabinet Seams
+
+**Symptoms:**
+- Foam escaping from cabinet edges
+- Mess on fixture and equipment
+- Cabinet weight above target
+
+**Possible Causes and Resolutions:**
+
+| Priority | Cause | Resolution |
+|----------|-------|------------|
+| 1 | Over-injection (shot weight too high) | Reduce shot weight by 5% increments |
+| 2 | Cabinet fixture not clamping | Repair clamp cylinders; verify 80 PSI air |
+| 3 | Cream time too fast | Lower chemical temperature by 2-3°F |
+
+---
+
+### Problem 3.1: Mix Head Not Actuating
+
+**Symptoms:**
+- Mix head does not open/close on command
+- Cycle faults on HMI
+- Production stoppage
+
+**Possible Causes and Resolutions:**
+
+| Priority | Cause | Verification | Resolution |
+|----------|-------|--------------|------------|
+| 1 | Hydraulic pressure low | Check HPU gauge (1,800-2,000 PSI) | Check fluid level; verify pump |
+| 2 | Solenoid valve failure | Listen for click; check 24VDC | Replace CVK-SOL-24VDC |
+| 3 | PLC output fault | Check I/O on HMI | Reset fault; check wiring |
+| 4 | Cylinder seal failure | Check for external leaks | Replace seal kit |
+
+---
+
+## Section 4: Alarm Troubleshooting
+
+| Alarm Code | Description | Likely Cause | Action |
+|------------|-------------|--------------|--------|
+| ALM-001 | E-STOP Active | E-stop pressed | Reset E-stop |
+| ALM-010 | Hydraulic Pressure Low | HPU fault or leak | Check HPU |
+| ALM-020 | A-Side Temp Low | TCU heating fault | Check heater |
+| ALM-040 | A-Side Tank Low | Chemical level low | Refill tank |
+| ALM-060 | Mix Head Fault | Actuation failure | Check hydraulics |
+| ALM-100 | PLC Battery Low | Battery depleted | Replace AB-1769-BA |`,
+
+    4: `# CB-200 Cabinet Foaming Station
+## Spare Parts Catalog
+
+**Document Number:** SPC-CB200-001  
+**Revision:** 3.4  
+**Effective Date:** December 1, 2023  
+**Storeroom Location:** Fitchburg Maintenance Crib, Aisle 7
+
+---
+
+## Section 1: Parts Ordering Information
+
+### 1.1 Primary Supplier
+
+**Cannon Viking Ltd.**  
+1245 Industrial Parkway, Grand Rapids, MI 49503  
+
+- Orders: orders@cannonviking.com  
+- Phone: 1-800-555-0123  
+- Lead Time: Stock items 3-5 days; Non-stock 2-4 weeks
+
+---
+
+## Section 2: Critical Spares (Recommended Stock)
+
+### 2.1 Mix Head Components
+
+| Part Number | Description | Recommended Stock | Unit Price | Criticality |
+|-------------|-------------|-------------------|------------|-------------|
+| CVK-2200-SEAL | Mix head seal kit | 6 | $185.00 | HIGH |
+| CVK-2201-NOZZ | Mix head nozzle assembly | 2 | $425.00 | HIGH |
+| CVK-2202-PIST | Mix head piston | 2 | $380.00 | MEDIUM |
+| CVK-2204-SPRG | Return spring set | 4 | $45.00 | LOW |
+
+### 2.2 Pump Components
+
+| Part Number | Description | Recommended Stock | Unit Price | Criticality |
+|-------------|-------------|-------------------|------------|-------------|
+| CVK-PUMP-KIT-200 | Metering pump rebuild kit | 2 | $650.00 | HIGH |
+| CVK-PUMP-CHK-01 | Pump check valve | 4 | $89.00 | HIGH |
+| CVK-PUMP-PKG-01 | Pump packing set | 4 | $125.00 | MEDIUM |
+
+### 2.3 Hydraulic Components
+
+| Part Number | Description | Recommended Stock | Unit Price | Criticality |
+|-------------|-------------|-------------------|------------|-------------|
+| CVK-HYD-FILTER | Hydraulic filter element | 4 | $48.00 | MEDIUM |
+| CVK-SOL-24VDC | Hydraulic solenoid valve | 2 | $285.00 | HIGH |
+| CVK-HOSE-HP-10 | High pressure hose, 10 ft | 2 | $145.00 | MEDIUM |
+| CVK-HYD-SEAL-CYL | Hydraulic cylinder seal kit | 2 | $165.00 | MEDIUM |
+
+### 2.4 Electrical and Controls
+
+| Part Number | Description | Recommended Stock | Unit Price | Criticality |
+|-------------|-------------|-------------------|------------|-------------|
+| AB-1769-BA | CompactLogix battery | 2 | $85.00 | HIGH |
+| CVK-PROX-01 | Proximity sensor | 2 | $68.00 | MEDIUM |
+| CVK-TC-01 | Thermocouple, Type J | 4 | $45.00 | MEDIUM |
+| CVK-XDCR-PRESS | Pressure transducer | 2 | $385.00 | HIGH |
+
+---
+
+## Section 3: Consumables
+
+### 3.1 Lubricants and Fluids
+
+| Part Number | Description | Recommended Stock | Unit Price | Notes |
+|-------------|-------------|-------------------|------------|-------|
+| MOBIL-DTE25 | Hydraulic fluid, ISO 46 | 2 (5 gal) | $125.00 | Annual change |
+| MOBIL-EP2 | Lithium grease | 6 tubes | $12.00 | Weekly PM |
+| CVK-FLUSH-SOL | Chemical line flush solvent | 1 (5 gal) | $285.00 | Monthly PM |`,
+
+    5: `# CANNON VIKING SERVICE BULLETIN
+
+## SB-2024-03
+
+**Issue Date:** January 15, 2024  
+**Effective Date:** Immediate  
+**Classification:** IMPORTANT - Maintenance Action Required
+
+---
+
+## Subject: Mix Head Seal Life Improvement and Revised PM Interval
+
+## Affected Equipment
+
+| Model Series | Serial Number Range |
+|--------------|---------------------|
+| CB-200 | CB200-1000 through CB200-5000 |
+| CB-300 | CB300-1000 through CB300-3500 |
+| CB-400 | CB400-1000 through CB400-2000 |
+
+---
+
+## Section 1: Background
+
+Cannon Viking has completed an extensive field evaluation of mix head seal performance across the CB-series foam equipment installed base.
+
+### 1.1 Findings
+
+Analysis of 847 seal replacement events across 142 machines revealed:
+- Average seal life: 62,000 cycles (current PM interval: 50,000 cycles)
+- Median seal life: 71,000 cycles
+- Premature failures (<40,000 cycles): 12% of events
+- Root cause of premature failures:
+  - Improper installation: 45%
+  - Contaminated chemicals: 30%
+  - Incorrect lubrication: 15%
+  - Manufacturing defect: 10%
+
+---
+
+## Section 2: Required Actions
+
+### Action 1: Update PM Schedule (MANDATORY)
+
+**Previous Recommendation:** Replace mix head seals every 50,000 cycles OR monthly, whichever comes first.
+
+**New Recommendation:** Replace mix head seals every **75,000 cycles OR 6 weeks**, whichever comes first.
+
+**Conditions for Extended Interval:**
+- Must use current seal kit (CVK-2200-SEAL, date code 2023 or later)
+- Must follow revised installation procedure (Section 3)
+- Chemical filtration must be maintained per PM-CB200-001
+- Any seal leakage requires immediate replacement
+
+---
+
+## Section 3: Revised Seal Installation Procedure
+
+### 3.1 Pre-Installation Inspection
+
+Before installing new seals:
+
+1. **Inspect seal seating surfaces** - must be free of scoring
+2. **Verify new seal kit** - confirm date code 2023 or later
+3. **Clean all components** - use approved solvent
+
+### 3.2 Installation Steps
+
+1. Apply thin film of CVK-SEAL-LUBE to all seals
+2. Install piston seals with lip facing toward pressure side
+3. Use plastic installation tool - never use metal screwdriver
+4. Torque nozzle retaining ring to 45 in-lb (±5 in-lb)
+5. Manually cycle mix head 10 times to verify
+
+---
+
+## Quick Reference
+
+### Old vs. New PM Interval
+
+| Parameter | Previous | Current (SB-2024-03) |
+|-----------|----------|----------------------|
+| Cycle interval | 50,000 | 75,000 |
+| Time interval | Monthly | 6 weeks |
+| Seal kit required | Any | CVK-2200-SEAL (2023+) |
+
+### Seal Kit Identification
+
+| Characteristic | Old Material | New Material |
+|----------------|--------------|--------------|
+| Date code | 2022 or earlier | 2023 or later |
+| Marking | None | Blue dot |
+| Extended interval eligible | No | Yes |`
+  };
+
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Load document content when selected document changes
+  useEffect(() => {
+    setDocumentContent(sampleDocuments[selectedDocIndex] || 'Loading document...');
+    if (documentViewerRef.current) {
+      documentViewerRef.current.scrollTop = 0;
+    }
+  }, [selectedDocIndex]);
+
+  const handlePrevDoc = () => {
+    setSelectedDocIndex((prev) => (prev > 0 ? prev - 1 : DOCUMENTS.length - 1));
+  };
+
+  const handleNextDoc = () => {
+    setSelectedDocIndex((prev) => (prev < DOCUMENTS.length - 1 ? prev + 1 : 0));
+  };
+
+  // Send message to Vertesia
+  const sendMessage = async () => {
+    if (!inputValue.trim() || isStreaming) return;
+
+    const userMessage = inputValue.trim();
+    setInputValue('');
+    setMessages((prev) => [...prev, { role: 'user', content: userMessage, sources: [] }]);
+    setIsStreaming(true);
+
+    try {
+      // Start async conversation
+      const response = await fetch(`${VERTESIA_CONFIG.BASE_URL}/execute/async`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${VERTESIA_CONFIG.API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          type: 'conversation',
+          interaction: 'Document-Chat',
+          data: {
+            question: userMessage,
+            conversation_history: messages.slice(-10).map(m => ({
+              role: m.role,
+              content: m.content
+            }))
+          },
+          config: {
+            environment: VERTESIA_CONFIG.ENVIRONMENT_ID,
+            model: VERTESIA_CONFIG.MODEL
+          }
+        })
+      });
+
+      const { workflowId, runId } = await response.json();
+
+      // Stream the response
+      if (workflowId && runId) {
+        await streamResponse(workflowId, runId);
+      } else {
+        throw new Error('No workflow ID returned');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: "I apologize, but I encountered an error connecting to the document system. Please try again.",
+          sources: []
+        }
+      ]);
+      setIsStreaming(false);
+    }
+  };
+
+  // Stream response from Vertesia
+  const streamResponse = async (workflowId, runId) => {
+    const url = `${VERTESIA_CONFIG.BASE_URL}/workflows/${workflowId}/runs/${runId}/stream`;
+    let fullContent = '';
+    let sources = [];
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${VERTESIA_CONFIG.API_KEY}`,
+          'Accept': 'text/event-stream'
+        }
+      });
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      // Add placeholder message
+      setMessages((prev) => [...prev, { role: 'assistant', content: '', sources: [] }]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.content) {
+                fullContent += data.content;
+                setMessages((prev) => {
+                  const newMessages = [...prev];
+                  newMessages[newMessages.length - 1] = {
+                    role: 'assistant',
+                    content: fullContent,
+                    sources: sources
+                  };
+                  return newMessages;
+                });
+              }
+              if (data.sources) {
+                sources = data.sources;
+              }
+            } catch (e) {
+              // Ignore parse errors for incomplete chunks
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Stream error:', error);
+    } finally {
+      setIsStreaming(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  // Suggested questions for demo
+  const suggestedQuestions = [
+    "What causes voids in the cabinet?",
+    "How do I lock out the hydraulic system?",
+    "What's the part number for mix head seals?",
+    "How often should I replace the seals?"
+  ];
+
+  return (
+    <div style={{
+      display: 'flex',
+      height: '100vh',
+      width: '100%',
+      fontFamily: "'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif",
+      backgroundColor: '#0a0f1a',
+      color: '#e2e8f0'
+    }}>
+      {/* Left Panel - Document Viewer */}
+      <div style={{
+        width: '50%',
+        display: 'flex',
+        flexDirection: 'column',
+        borderRight: '1px solid rgba(59, 130, 246, 0.2)',
+        background: 'linear-gradient(180deg, #0d1424 0%, #0a0f1a 100%)'
+      }}>
+        {/* Document Header */}
+        <div style={{
+          padding: '16px 24px',
+          borderBottom: '1px solid rgba(59, 130, 246, 0.2)',
+          background: 'rgba(15, 23, 42, 0.8)',
+          backdropFilter: 'blur(10px)'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '12px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '8px',
+                background: `linear-gradient(135deg, ${DOCUMENTS[selectedDocIndex].color}40, ${DOCUMENTS[selectedDocIndex].color}20)`,
+                border: `1px solid ${DOCUMENTS[selectedDocIndex].color}60`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <FileText />
+              </div>
+              <div>
+                <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '500' }}>
+                  {DOCUMENTS[selectedDocIndex].docNumber}
+                </div>
+                <div style={{ fontSize: '16px', fontWeight: '600', color: '#f1f5f9' }}>
+                  {DOCUMENTS[selectedDocIndex].name}
+                </div>
+              </div>
+            </div>
+            
+            {/* Navigation Arrows */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                onClick={handlePrevDoc}
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  background: 'rgba(59, 130, 246, 0.1)',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = 'rgba(59, 130, 246, 0.2)';
+                  e.currentTarget.style.color = '#e2e8f0';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+                  e.currentTarget.style.color = '#94a3b8';
+                }}
+              >
+                <ChevronLeft />
+              </button>
+              <span style={{ 
+                fontSize: '13px', 
+                color: '#64748b',
+                minWidth: '60px',
+                textAlign: 'center'
+              }}>
+                {selectedDocIndex + 1} of {DOCUMENTS.length}
+              </span>
+              <button
+                onClick={handleNextDoc}
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  background: 'rgba(59, 130, 246, 0.1)',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = 'rgba(59, 130, 246, 0.2)';
+                  e.currentTarget.style.color = '#e2e8f0';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+                  e.currentTarget.style.color = '#94a3b8';
+                }}
+              >
+                <ChevronRight />
+              </button>
+            </div>
+          </div>
+
+          {/* Document Pills */}
+          <div style={{
+            display: 'flex',
+            gap: '6px',
+            flexWrap: 'wrap'
+          }}>
+            {DOCUMENTS.map((doc, index) => (
+              <button
+                key={doc.id}
+                onClick={() => setSelectedDocIndex(index)}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  border: selectedDocIndex === index 
+                    ? `1px solid ${doc.color}` 
+                    : '1px solid rgba(100, 116, 139, 0.3)',
+                  background: selectedDocIndex === index 
+                    ? `${doc.color}20` 
+                    : 'transparent',
+                  color: selectedDocIndex === index ? doc.color : '#94a3b8',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                {doc.shortName}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Document Content */}
+        <div
+          ref={documentViewerRef}
+          style={{
+            flex: 1,
+            overflow: 'auto',
+            padding: '24px',
+            lineHeight: '1.7'
+          }}
+        >
+          <div style={{
+            background: 'rgba(15, 23, 42, 0.5)',
+            borderRadius: '12px',
+            border: '1px solid rgba(59, 130, 246, 0.1)',
+            padding: '32px',
+            maxWidth: '720px',
+            margin: '0 auto'
+          }}>
+            {documentContent.split('\n').map((line, index) => {
+              if (line.startsWith('# ')) {
+                return (
+                  <h1 key={index} style={{
+                    fontSize: '28px',
+                    fontWeight: '700',
+                    color: '#f8fafc',
+                    marginBottom: '8px',
+                    marginTop: index === 0 ? '0' : '32px',
+                    borderBottom: '2px solid rgba(59, 130, 246, 0.3)',
+                    paddingBottom: '12px'
+                  }}>
+                    {line.slice(2)}
+                  </h1>
+                );
+              }
+              if (line.startsWith('## ')) {
+                return (
+                  <h2 key={index} style={{
+                    fontSize: '20px',
+                    fontWeight: '600',
+                    color: '#e2e8f0',
+                    marginBottom: '16px',
+                    marginTop: '28px'
+                  }}>
+                    {line.slice(3)}
+                  </h2>
+                );
+              }
+              if (line.startsWith('### ')) {
+                return (
+                  <h3 key={index} style={{
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    color: '#cbd5e1',
+                    marginBottom: '12px',
+                    marginTop: '20px'
+                  }}>
+                    {line.slice(4)}
+                  </h3>
+                );
+              }
+              if (line.startsWith('**') && line.endsWith('**')) {
+                return (
+                  <p key={index} style={{
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    color: '#94a3b8',
+                    marginBottom: '4px'
+                  }}>
+                    {line.slice(2, -2)}
+                  </p>
+                );
+              }
+              if (line.startsWith('| ')) {
+                return (
+                  <div key={index} style={{
+                    fontSize: '13px',
+                    color: '#94a3b8',
+                    fontFamily: "'IBM Plex Mono', monospace",
+                    padding: '4px 0',
+                    borderBottom: '1px solid rgba(59, 130, 246, 0.1)'
+                  }}>
+                    {line}
+                  </div>
+                );
+              }
+              if (line.startsWith('---')) {
+                return (
+                  <hr key={index} style={{
+                    border: 'none',
+                    borderTop: '1px solid rgba(59, 130, 246, 0.2)',
+                    margin: '24px 0'
+                  }} />
+                );
+              }
+              if (line.trim() === '') {
+                return <div key={index} style={{ height: '12px' }} />;
+              }
+              return (
+                <p key={index} style={{
+                  fontSize: '14px',
+                  color: '#cbd5e1',
+                  marginBottom: '8px'
+                }}>
+                  {line}
+                </p>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Right Panel - Chat */}
+      <div style={{
+        width: '50%',
+        display: 'flex',
+        flexDirection: 'column',
+        background: 'linear-gradient(180deg, #0a0f1a 0%, #0d1424 100%)'
+      }}>
+        {/* Chat Header */}
+        <div style={{
+          padding: '16px 24px',
+          borderBottom: '1px solid rgba(59, 130, 246, 0.2)',
+          background: 'rgba(15, 23, 42, 0.8)',
+          backdropFilter: 'blur(10px)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
+            }}>
+              <BookOpen />
+            </div>
+            <div>
+              <div style={{ fontSize: '17px', fontWeight: '600', color: '#f1f5f9' }}>
+                CB-200 Documentation Assistant
+              </div>
+              <div style={{ fontSize: '13px', color: '#64748b' }}>
+                6 documents loaded • RAG-powered responses
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Messages */}
+        <div style={{
+          flex: 1,
+          overflow: 'auto',
+          padding: '24px'
+        }}>
+          {messages.map((message, index) => (
+            <div
+              key={index}
+              style={{
+                marginBottom: '20px',
+                display: 'flex',
+                justifyContent: message.role === 'user' ? 'flex-end' : 'flex-start'
+              }}
+            >
+              <div style={{
+                maxWidth: '85%',
+                padding: '14px 18px',
+                borderRadius: message.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                background: message.role === 'user'
+                  ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)'
+                  : 'rgba(30, 41, 59, 0.8)',
+                border: message.role === 'user' 
+                  ? 'none' 
+                  : '1px solid rgba(59, 130, 246, 0.2)',
+                boxShadow: message.role === 'user'
+                  ? '0 4px 12px rgba(59, 130, 246, 0.2)'
+                  : '0 2px 8px rgba(0, 0, 0, 0.2)'
+              }}>
+                <div style={{
+                  fontSize: '14px',
+                  lineHeight: '1.6',
+                  color: message.role === 'user' ? '#ffffff' : '#e2e8f0',
+                  whiteSpace: 'pre-wrap'
+                }}>
+                  {message.content || (isStreaming && index === messages.length - 1 ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8' }}>
+                      <Loader /> Thinking...
+                    </span>
+                  ) : null)}
+                </div>
+                {message.sources && message.sources.length > 0 && (
+                  <div style={{
+                    marginTop: '12px',
+                    paddingTop: '12px',
+                    borderTop: '1px solid rgba(59, 130, 246, 0.2)',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '6px'
+                  }}>
+                    {message.sources.map((source, sIndex) => (
+                      <span
+                        key={sIndex}
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: '4px',
+                          background: 'rgba(59, 130, 246, 0.15)',
+                          border: '1px solid rgba(59, 130, 246, 0.3)',
+                          fontSize: '11px',
+                          color: '#93c5fd'
+                        }}
+                      >
+                        📄 {source}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+          <div ref={chatEndRef} />
+        </div>
+
+        {/* Suggested Questions */}
+        {messages.length <= 2 && (
+          <div style={{
+            padding: '0 24px 16px',
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '8px'
+          }}>
+            {suggestedQuestions.map((question, index) => (
+              <button
+                key={index}
+                onClick={() => {
+                  setInputValue(question);
+                }}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  background: 'rgba(59, 130, 246, 0.1)',
+                  color: '#93c5fd',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = 'rgba(59, 130, 246, 0.2)';
+                  e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.5)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+                  e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+                }}
+              >
+                {question}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Input Area */}
+        <div style={{
+          padding: '20px 24px',
+          borderTop: '1px solid rgba(59, 130, 246, 0.2)',
+          background: 'rgba(15, 23, 42, 0.8)',
+          backdropFilter: 'blur(10px)'
+        }}>
+          <div style={{
+            display: 'flex',
+            gap: '12px',
+            alignItems: 'flex-end'
+          }}>
+            <div style={{
+              flex: 1,
+              position: 'relative'
+            }}>
+              <textarea
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask about the CB-200 equipment..."
+                disabled={isStreaming}
+                rows={1}
+                style={{
+                  width: '100%',
+                  padding: '14px 16px',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  background: 'rgba(15, 23, 42, 0.8)',
+                  color: '#e2e8f0',
+                  fontSize: '14px',
+                  resize: 'none',
+                  outline: 'none',
+                  fontFamily: 'inherit',
+                  transition: 'border-color 0.2s'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = 'rgba(59, 130, 246, 0.6)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+                }}
+              />
+            </div>
+            <button
+              onClick={sendMessage}
+              disabled={isStreaming || !inputValue.trim()}
+              style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '12px',
+                border: 'none',
+                background: isStreaming || !inputValue.trim()
+                  ? 'rgba(59, 130, 246, 0.3)'
+                  : 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                color: '#ffffff',
+                cursor: isStreaming || !inputValue.trim() ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s',
+                boxShadow: isStreaming || !inputValue.trim()
+                  ? 'none'
+                  : '0 4px 12px rgba(59, 130, 246, 0.3)'
+              }}
+            >
+              {isStreaming ? <Loader /> : <SendIcon />}
+            </button>
+          </div>
+          <div style={{
+            marginTop: '10px',
+            fontSize: '11px',
+            color: '#64748b',
+            textAlign: 'center'
+          }}>
+            Press Enter to send • Powered by Vertesia RAG
+          </div>
+        </div>
+      </div>
+
+      {/* Global Styles */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+        
+        * {
+          box-sizing: border-box;
+          margin: 0;
+          padding: 0;
+        }
+        
+        ::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+          background: rgba(15, 23, 42, 0.5);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+          background: rgba(59, 130, 246, 0.3);
+          border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+          background: rgba(59, 130, 246, 0.5);
+        }
+        
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        
+        .animate-spin {
+          animation: spin 1s linear infinite;
+        }
+        
+        textarea::placeholder {
+          color: #64748b;
+        }
+      `}</style>
+    </div>
+  );
+}
