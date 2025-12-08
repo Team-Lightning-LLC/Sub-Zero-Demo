@@ -177,7 +177,7 @@
     <div class="chat-panel">
       <div class="chat-header">
         <h2><span class="status">●</span> Maintenance Assistant</h2>
-        <div class="chat-subtitle">Powered by Vertesia RAG • Ask about CB-200 maintenance</div>
+        <div class="chat-subtitle">Powered by Vertesia</div>
       </div>
       
       <div class="suggestions">
@@ -192,7 +192,7 @@
       
       <div class="chat-messages" id="chatMessages">
         <div class="message assistant">
-          <p>👋 Hi! I'm your CB-200 maintenance assistant. I can search across all loaded documentation to answer your questions about safety, maintenance, troubleshooting, and parts.</p>
+          <p> Hello! I'm your Machinery Servicing assistant. I can search across all loaded documentation to answer your questions about safety, maintenance, troubleshooting, and parts.</p>
         </div>
       </div>
       
@@ -435,7 +435,7 @@
             type: 'conversation',
             interaction: CONFIG.INTERACTION,
             data: {
-              question: question,
+              task: question,
               conversation_history: conversationHistory.slice(-6)
             },
             config: {
