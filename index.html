@@ -324,6 +324,16 @@
         <div class="chat-subtitle">Powered by Vertesia</div>
       </div>
       
+      <div class="suggestions">
+        <div class="suggestions-label">Try asking</div>
+        <div class="suggestions-list">
+          <button class="suggestion-btn" onclick="Chat.ask('What causes voids?')">What causes voids?</button>
+          <button class="suggestion-btn" onclick="Chat.ask('What PPE do I need for seals?')">PPE for seals?</button>
+          <button class="suggestion-btn" onclick="Chat.ask('How often should I replace seals?')">Seal interval?</button>
+          <button class="suggestion-btn" onclick="Chat.ask('What is the part number for seals?')">Seal part #?</button>
+        </div>
+      </div>
+      
       <div class="chat-messages" id="chatMessages">
         <div class="message assistant">
           <p>Hello! I'm your Machinery Servicing Assistant. I can search across all loaded documentation to answer your questions about safety, maintenance, troubleshooting, and parts.</p>
@@ -601,8 +611,8 @@
         this.setLoading(true);
         this.addMessage(question, 'user');
         
-        // Show status indicator instead of just dots
-        const statusEl = this.showStatus('Connecting...');
+        // Show simple typing indicator
+        const typingEl = this.showTyping();
 
         try {
           // Build task string with conversation history
@@ -630,88 +640,41 @@
             throw new Error('Missing runId or workflowId in response');
           }
 
-          this.updateStatus(statusEl, 'Processing...');
-
           // Stream the response
           let answer = '';
           let answered = false;
-          let streamingText = '';
-          let messageEl = null;
 
           await Vertesia.streamResponse(
             workflowId,
             runId,
             // onMessage
             (data) => {
-              console.log('[Chat] Stream data:', JSON.stringify(data, null, 2));
+              console.log('[Chat] Stream data:', data.type, data.message?.substring(0, 100));
               
-              // Update status with progress messages
-              if (data.type === 'update' && data.message) {
-                this.updateStatus(statusEl, data.message);
-              }
-              
-              // Check for answer in multiple formats
-              // Format 1: type: "answer" with message
+              // ONLY look for type: "answer" - ignore all updates
               if (data.type === 'answer' && data.message && !answered) {
                 answered = true;
-                answer = data.message;
-                statusEl.remove();
+                
+                // Extract just the Agent Answer part if it exists
+                answer = this.extractAnswer(data.message);
+                
+                typingEl.remove();
                 this.addMessage(answer, 'assistant');
-                return;
-              }
-              
-              // Format 2: type: "complete" with result/content
-              if (data.type === 'complete' && !answered) {
-                const content = data.result || data.content || data.message || data.output;
-                if (content) {
-                  answered = true;
-                  answer = typeof content === 'string' ? content : JSON.stringify(content);
-                  statusEl.remove();
-                  this.addMessage(answer, 'assistant');
-                  return;
-                }
-              }
-              
-              // Format 3: Streaming text chunks (delta/content/text)
-              const chunk = data.delta || data.content || data.text;
-              if (chunk && typeof chunk === 'string' && !answered) {
-                streamingText += chunk;
-                if (!messageEl) {
-                  statusEl.remove();
-                  messageEl = this.addMessage(streamingText, 'assistant');
-                } else {
-                  messageEl.innerHTML = marked.parse(streamingText);
-                }
-              }
-              
-              // Format 4: Direct message field (not an update)
-              if (data.message && data.type !== 'update' && !answered) {
-                answered = true;
-                answer = data.message;
-                statusEl.remove();
-                this.addMessage(answer, 'assistant');
-                return;
               }
             },
             // onComplete
             () => {
-              console.log('[Chat] Stream complete. Answered:', answered, 'StreamingText:', streamingText.length);
-              
-              // If we got streaming text, that's our answer
-              if (streamingText && !answered) {
-                answered = true;
-                answer = streamingText;
-              }
+              console.log('[Chat] Stream complete. Answered:', answered);
               
               if (!answered) {
-                statusEl.remove();
-                this.addMessage('The agent completed but returned no response. Check console for details.', 'assistant');
+                typingEl.remove();
+                this.addMessage('The agent completed but returned no response. Please try again.', 'assistant');
               }
               this.setLoading(false);
             },
             // onError
             (error) => {
-              statusEl.remove();
+              typingEl.remove();
               this.addMessage(`Error: ${error.message}`, 'assistant');
               this.setLoading(false);
             }
@@ -725,10 +688,28 @@
 
         } catch (error) {
           console.error('[Chat] Error:', error);
-          statusEl.remove();
+          typingEl.remove();
           this.addMessage(`Error: ${error.message}`, 'assistant');
           this.setLoading(false);
         }
+      },
+
+      // Extract just the answer portion from the agent response
+      extractAnswer(fullMessage) {
+        // The agent returns formatted like:
+        // **1. User Query:** ...
+        // **2. Resources Search:** ...
+        // **3. Agent Answer:** [THE ACTUAL ANSWER]
+        
+        // Try to extract just the Agent Answer section
+        const answerMatch = fullMessage.match(/\*\*3\.\s*Agent Answer:\*\*\s*([\s\S]*?)(?=\*\*\d+\.|$)/i);
+        
+        if (answerMatch && answerMatch[1].trim()) {
+          return answerMatch[1].trim();
+        }
+        
+        // If no structured format, return the whole message
+        return fullMessage;
       },
 
       addMessage(text, role) {
@@ -741,32 +722,25 @@
         return div;
       },
 
-      showStatus(text) {
+      showTyping() {
         const container = document.getElementById('chatMessages');
         const div = document.createElement('div');
-        div.className = 'message assistant status-message';
-        div.innerHTML = `
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <div class="typing"><span></span><span></span><span></span></div>
-            <span class="status-text" style="font-size: 12px; opacity: 0.7;">${Documents.escapeHtml(text)}</span>
-          </div>
-        `;
+        div.className = 'message assistant';
+        div.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
         return div;
-      },
-      
-      updateStatus(el, text) {
-        const statusText = el.querySelector('.status-text');
-        if (statusText) {
-          statusText.textContent = text;
-        }
       },
 
       setLoading(loading) {
         this.isLoading = loading;
         document.getElementById('sendBtn').disabled = loading;
         document.getElementById('chatInput').disabled = loading;
+        
+        // Re-focus input when done
+        if (!loading) {
+          document.getElementById('chatInput').focus();
+        }
       },
 
       handleKey(e) {
