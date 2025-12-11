@@ -660,6 +660,9 @@
                 
                 typingEl.remove();
                 this.addMessage(answer, 'assistant');
+                
+                // Re-enable input immediately after answer
+                this.setLoading(false);
               }
             },
             // onComplete
@@ -669,8 +672,9 @@
               if (!answered) {
                 typingEl.remove();
                 this.addMessage('The agent completed but returned no response. Please try again.', 'assistant');
+                this.setLoading(false);
               }
-              this.setLoading(false);
+              // If already answered, setLoading(false) was already called
             },
             // onError
             (error) => {
