@@ -288,40 +288,6 @@
     .chat-header h2 { font-size: 16px; font-weight: 600; color: var(--charcoal); }
     .chat-subtitle { font-size: 12px; color: var(--charcoal-light); margin-top: 4px; opacity: 0.7; }
     
-    .suggestions { 
-      padding: 14px 24px; 
-      border-bottom: 1px solid var(--beige); 
-      background: var(--cream); 
-    }
-    
-    .suggestions-label { 
-      font-size: 11px; 
-      color: var(--charcoal-light); 
-      margin-bottom: 10px; 
-      text-transform: uppercase; 
-      letter-spacing: 0.5px; 
-      opacity: 0.7; 
-    }
-    
-    .suggestions-list { display: flex; flex-wrap: wrap; gap: 8px; }
-    
-    .suggestion-btn { 
-      padding: 8px 14px; 
-      background: var(--white); 
-      border: 1px solid var(--beige); 
-      border-radius: 8px; 
-      color: var(--charcoal-light); 
-      font-size: 12px; 
-      cursor: pointer; 
-      transition: all 0.2s; 
-    }
-    
-    .suggestion-btn:hover { 
-      border-color: var(--charcoal); 
-      color: var(--charcoal); 
-      background: var(--beige-light); 
-    }
-    
     .chat-messages { 
       flex: 1; 
       overflow: auto; 
@@ -367,6 +333,8 @@
     .message.assistant ul { margin: 8px 0 8px 20px; }
     .message.assistant strong { color: var(--charcoal); font-weight: 600; }
     .message.assistant code { background: var(--beige-light); padding: 2px 5px; border-radius: 3px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+    .message.assistant a { color: var(--accent); text-decoration: underline; cursor: pointer; font-weight: 500; }
+    .message.assistant a:hover { color: var(--charcoal); }
     
     .typing { display: flex; gap: 5px; padding: 8px 0; }
     .typing span { width: 8px; height: 8px; background: var(--charcoal-light); border-radius: 50%; animation: bounce 1.4s infinite ease-in-out; opacity: 0.5; }
@@ -453,7 +421,6 @@
         <h2>Machinery Servicing Terminal</h2>
         <div class="chat-subtitle">Powered by Vertesia</div>
       </div>
-      
       
       <div class="chat-messages" id="chatMessages">
         <div class="message assistant">
@@ -1042,6 +1009,32 @@
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         Documents.closeViewer();
+      }
+    });
+    
+    // Intercept clicks on document links in chat
+    document.getElementById('chatMessages').addEventListener('click', (e) => {
+      const link = e.target.closest('a');
+      if (!link) return;
+      
+      const linkText = link.textContent.trim();
+      const href = link.getAttribute('href') || '';
+      
+      // Check if this matches any document name
+      const docIndex = Documents.items.findIndex(doc => {
+        const docName = doc.name.toLowerCase();
+        const searchText = linkText.toLowerCase();
+        const searchHref = href.toLowerCase();
+        
+        return docName === searchText || 
+               docName.includes(searchText) || 
+               searchText.includes(docName.replace('.pdf', '').replace('.docx', '')) ||
+               searchHref.includes(docName);
+      });
+      
+      if (docIndex !== -1) {
+        e.preventDefault();
+        Documents.openViewer(docIndex);
       }
     });
   </script>
