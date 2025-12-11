@@ -730,9 +730,65 @@
         const container = document.getElementById('chatMessages');
         const div = document.createElement('div');
         div.className = 'message assistant';
-        div.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+        div.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div class="typing"><span></span><span></span><span></span></div>
+            <span class="status-text" style="font-size: 13px; opacity: 0.8;">Thinking...</span>
+          </div>
+        `;
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
+        
+        // Start cycling through status messages
+        const messages = [
+          "Thinking...",
+          "Searching documents...",
+          "Identifying context...",
+          "Analyzing query...",
+          "Reading manuals...",
+          "Cross-referencing data...",
+          "Finding relevant sections...",
+          "Processing information...",
+          "Checking maintenance logs...",
+          "Reviewing specifications...",
+          "Matching keywords...",
+          "Scanning procedures...",
+          "Evaluating sources...",
+          "Compiling answer...",
+          "Verifying details...",
+          "Gathering insights...",
+          "Consulting documentation...",
+          "Parsing technical data...",
+          "Locating best practices...",
+          "Synthesizing response..."
+        ];
+        
+        let lastIndex = -1;
+        const statusText = div.querySelector('.status-text');
+        
+        const cycleStatus = () => {
+          // Pick a random message that's different from the last one
+          let newIndex;
+          do {
+            newIndex = Math.floor(Math.random() * messages.length);
+          } while (newIndex === lastIndex);
+          lastIndex = newIndex;
+          
+          if (statusText) {
+            statusText.textContent = messages[newIndex];
+          }
+        };
+        
+        // Cycle every 2 seconds
+        div.statusInterval = setInterval(cycleStatus, 2000);
+        
+        // Store original remove function and override to clear interval
+        const originalRemove = div.remove.bind(div);
+        div.remove = () => {
+          clearInterval(div.statusInterval);
+          originalRemove();
+        };
+        
         return div;
       },
 
