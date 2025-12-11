@@ -66,87 +66,192 @@
     .doc-list {
       flex: 1;
       overflow: auto;
-      padding: 16px;
     }
     
-    /* Document Item */
-    .doc-item {
+    /* Table Styles */
+    .doc-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    
+    .doc-table th {
+      text-align: left;
+      padding: 12px 16px;
+      background: var(--beige-light);
+      border-bottom: 1px solid var(--beige);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--charcoal-light);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    
+    .doc-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--beige);
+      vertical-align: middle;
+    }
+    
+    .doc-table tr {
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    
+    .doc-table tbody tr:hover {
+      background: var(--cream);
+    }
+    
+    .doc-name {
+      color: var(--charcoal);
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .doc-name-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: var(--beige-light);
       border: 1px solid var(--beige);
-      border-radius: 10px;
-      margin-bottom: 12px;
-      overflow: hidden;
-      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      flex-shrink: 0;
     }
     
-    .doc-item:hover { border-color: var(--charcoal-light); }
-    .doc-item.expanded { border-color: var(--charcoal); }
+    .doc-type {
+      color: var(--charcoal-light);
+      font-size: 12px;
+    }
     
-    .doc-item-header {
-      padding: 14px 16px;
+    .doc-type-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      background: var(--beige-light);
+      border-radius: 12px;
+      font-size: 11px;
+    }
+    
+    /* Document Viewer Modal */
+    .doc-viewer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(52, 54, 51, 0.6);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.25s ease;
+    }
+    
+    .doc-viewer-overlay.open {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    .doc-viewer {
+      background: var(--white);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 900px;
+      height: 85vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.25);
+      transform: translateY(20px) scale(0.98);
+      transition: transform 0.25s ease;
+    }
+    
+    .doc-viewer-overlay.open .doc-viewer {
+      transform: translateY(0) scale(1);
+    }
+    
+    .doc-viewer-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--beige);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      cursor: pointer;
-      background: var(--cream);
-      transition: background 0.2s;
-    }
-    
-    .doc-item-header:hover { background: var(--beige-light); }
-    
-    .doc-item.expanded .doc-item-header {
       background: var(--charcoal);
+      border-radius: 16px 16px 0 0;
       color: var(--white);
     }
     
-    .doc-item-info { display: flex; align-items: center; gap: 12px; }
+    .doc-viewer-title {
+      font-size: 15px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
     
-    .doc-item-icon {
-      width: 36px;
-      height: 36px;
+    .doc-viewer-title-icon {
+      width: 32px;
+      height: 32px;
+      background: rgba(255,255,255,0.15);
       border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 16px;
-      background: var(--beige-light);
-      border: 1px solid var(--beige);
     }
     
-    .doc-item.expanded .doc-item-icon {
-      background: rgba(255,255,255,0.15);
-      border-color: rgba(255,255,255,0.2);
+    .doc-viewer-close {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: none;
+      background: rgba(255,255,255,0.1);
+      color: var(--white);
+      cursor: pointer;
+      font-size: 18px;
+      transition: background 0.15s;
     }
     
-    .doc-item-title { font-size: 14px; font-weight: 500; }
-    .doc-item-meta { font-size: 11px; opacity: 0.6; margin-top: 2px; }
-    .doc-item-toggle { font-size: 12px; opacity: 0.5; transition: transform 0.2s; }
-    .doc-item.expanded .doc-item-toggle { transform: rotate(180deg); }
+    .doc-viewer-close:hover {
+      background: rgba(255,255,255,0.2);
+    }
     
-    .doc-item-content {
-      display: none;
-      padding: 20px;
-      background: var(--white);
-      max-height: 400px;
+    .doc-viewer-content {
+      flex: 1;
       overflow: auto;
-      border-top: 1px solid var(--beige);
-      line-height: 1.7;
+      padding: 32px 40px;
+      line-height: 1.8;
+      font-size: 14px;
     }
     
-    .doc-item.expanded .doc-item-content { display: block; }
+    .doc-viewer-content h1 { font-size: 24px; color: var(--charcoal); margin-bottom: 16px; border-bottom: 2px solid var(--beige); padding-bottom: 12px; }
+    .doc-viewer-content h2 { font-size: 18px; color: var(--charcoal); margin: 28px 0 12px; font-weight: 600; }
+    .doc-viewer-content h3 { font-size: 15px; color: var(--charcoal-light); margin: 20px 0 10px; font-weight: 600; }
+    .doc-viewer-content p { margin-bottom: 14px; color: var(--charcoal); opacity: 0.9; }
+    .doc-viewer-content ul, .doc-viewer-content ol { margin: 12px 0 12px 28px; }
+    .doc-viewer-content li { margin-bottom: 8px; }
+    .doc-viewer-content table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13px; }
+    .doc-viewer-content th { background: var(--beige-light); padding: 10px 14px; text-align: left; border: 1px solid var(--beige); font-weight: 600; }
+    .doc-viewer-content td { padding: 10px 14px; border: 1px solid var(--beige); }
+    .doc-viewer-content code { background: var(--beige-light); padding: 2px 6px; border-radius: 4px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
+    .doc-viewer-content pre { background: var(--beige-light); padding: 16px; border-radius: 8px; overflow-x: auto; margin: 16px 0; }
+    .doc-viewer-content blockquote { border-left: 4px solid var(--accent); padding: 12px 20px; margin: 20px 0; background: var(--cream); border-radius: 0 8px 8px 0; }
+    .doc-viewer-content strong { color: var(--charcoal); font-weight: 600; }
     
-    /* Markdown styles in doc content */
-    .doc-item-content h1 { font-size: 20px; color: var(--charcoal); margin-bottom: 10px; border-bottom: 2px solid var(--beige); padding-bottom: 10px; }
-    .doc-item-content h2 { font-size: 16px; color: var(--charcoal); margin: 20px 0 10px; font-weight: 600; }
-    .doc-item-content h3 { font-size: 13px; color: var(--charcoal-light); margin: 14px 0 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .doc-item-content p { margin-bottom: 12px; color: var(--charcoal); font-size: 13px; opacity: 0.85; }
-    .doc-item-content ul, .doc-item-content ol { margin: 10px 0 10px 24px; font-size: 13px; opacity: 0.85; }
-    .doc-item-content li { margin-bottom: 6px; }
-    .doc-item-content table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 12px; }
-    .doc-item-content th { background: var(--beige-light); padding: 8px 10px; text-align: left; border: 1px solid var(--beige); font-weight: 600; }
-    .doc-item-content td { padding: 8px 10px; border: 1px solid var(--beige); }
-    .doc-item-content code { background: var(--beige-light); padding: 2px 5px; border-radius: 3px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
-    .doc-item-content blockquote { border-left: 3px solid var(--accent); padding: 10px 14px; margin: 14px 0; background: var(--cream); border-radius: 0 6px 6px 0; font-size: 13px; }
-    .doc-item-content strong { color: var(--charcoal); font-weight: 600; }
+    .doc-viewer-loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 200px;
+      color: var(--charcoal-light);
+      gap: 12px;
+    }
     
     .loading-state, .error-state {
       text-align: center;
@@ -310,10 +415,29 @@
     <div class="doc-panel">
       <div class="doc-header">
         <h2>Documentation</h2>
-        <div class="doc-header-sub">Click to expand documents</div>
+        <div class="doc-header-sub">Click a document to view</div>
       </div>
       <div class="doc-list" id="docList">
         <div class="loading-state">Loading documents...</div>
+      </div>
+    </div>
+    
+    <!-- Document Viewer Modal -->
+    <div class="doc-viewer-overlay" id="docViewerOverlay" onclick="Documents.closeViewer(event)">
+      <div class="doc-viewer" onclick="event.stopPropagation()">
+        <div class="doc-viewer-header">
+          <div class="doc-viewer-title">
+            <div class="doc-viewer-title-icon">📄</div>
+            <span id="docViewerTitle">Document</span>
+          </div>
+          <button class="doc-viewer-close" onclick="Documents.closeViewer()">✕</button>
+        </div>
+        <div class="doc-viewer-content" id="docViewerContent">
+          <div class="doc-viewer-loading">
+            <div class="typing"><span></span><span></span><span></span></div>
+            Loading document...
+          </div>
+        </div>
       </div>
     </div>
     
@@ -322,16 +446,6 @@
       <div class="chat-header">
         <h2>Machinery Servicing Assistant</h2>
         <div class="chat-subtitle">Powered by Vertesia</div>
-      </div>
-      
-      <div class="suggestions">
-        <div class="suggestions-label">Try asking</div>
-        <div class="suggestions-list">
-          <button class="suggestion-btn" onclick="Chat.ask('What causes voids?')">What causes voids?</button>
-          <button class="suggestion-btn" onclick="Chat.ask('What PPE do I need for seals?')">PPE for seals?</button>
-          <button class="suggestion-btn" onclick="Chat.ask('How often should I replace seals?')">Seal interval?</button>
-          <button class="suggestion-btn" onclick="Chat.ask('What is the part number for seals?')">Seal part #?</button>
-        </div>
       </div>
       
       <div class="chat-messages" id="chatMessages">
@@ -481,10 +595,11 @@
     };
 
     // ============================================
-    // DOCUMENT LOADING
+    // DOCUMENT LOADING (Fast - metadata only)
     // ============================================
     const Documents = {
       items: [],
+      contentCache: {}, // Cache loaded content
 
       async load() {
         const docList = document.getElementById('docList');
@@ -495,40 +610,13 @@
           
           console.log(`[Docs] Found ${objects.length} objects`);
 
-          for (const obj of objects) {
-            try {
-              const fullObj = await Vertesia.getObject(obj.id);
-              let content = '';
-
-              // Try to get content from various sources
-              if (fullObj.content?.source) {
-                const source = fullObj.content.source;
-                if (typeof source === 'string') {
-                  if (source.startsWith('gs://') || source.startsWith('s3://') || source.includes('/')) {
-                    content = await Vertesia.getContent(source);
-                  } else {
-                    content = source;
-                  }
-                } else if (typeof source === 'object') {
-                  const fileRef = source.file || source.store || source.path;
-                  if (fileRef) content = await Vertesia.getContent(fileRef);
-                }
-              } else if (fullObj.text) {
-                content = fullObj.text;
-              }
-
-              if (content && content.length > 50) {
-                this.items.push({
-                  id: obj.id,
-                  name: obj.name || 'Untitled',
-                  content: content
-                });
-                console.log(`[Docs] Loaded: ${obj.name}`);
-              }
-            } catch (err) {
-              console.warn(`[Docs] Failed: ${obj.name}`, err.message);
-            }
-          }
+          // Just store metadata - don't fetch content yet
+          this.items = objects.map(obj => ({
+            id: obj.id,
+            name: obj.name || 'Untitled',
+            type: this.inferType(obj),
+            source: obj.content?.source || null
+          })).filter(doc => doc.name);
 
           if (this.items.length === 0) {
             docList.innerHTML = '<div class="error-state">No documents found</div>';
@@ -543,48 +631,127 @@
         }
       },
 
+      inferType(obj) {
+        const name = (obj.name || '').toLowerCase();
+        const props = obj.properties || {};
+        
+        // Check properties first
+        if (props.document_type) return props.document_type;
+        if (props.type) return props.type;
+        
+        // Infer from filename
+        if (name.includes('manual')) return 'Equipment Manual';
+        if (name.includes('maintenance') || name.includes('pm')) return 'Maintenance Instruction';
+        if (name.includes('datasheet')) return 'Equipment Datasheet';
+        if (name.includes('template')) return 'Template';
+        if (name.includes('filter') || name.includes('chiller') || name.includes('robot')) return 'Equipment Manual';
+        
+        return 'Document';
+      },
+
+      getIcon(type) {
+        const t = type.toLowerCase();
+        if (t.includes('manual')) return '📘';
+        if (t.includes('maintenance')) return '🔧';
+        if (t.includes('datasheet')) return '📊';
+        if (t.includes('template')) return '📋';
+        return '📄';
+      },
+
       render() {
         const docList = document.getElementById('docList');
         
-        docList.innerHTML = this.items.map((doc, i) => `
-          <div class="doc-item" id="doc-${i}">
-            <div class="doc-item-header" onclick="Documents.toggle(${i})">
-              <div class="doc-item-info">
-                <div class="doc-item-icon">📄</div>
-                <div>
-                  <div class="doc-item-title">${this.escapeHtml(doc.name)}</div>
-                  <div class="doc-item-meta">${this.formatSize(doc.content.length)} • ${i + 1} of ${this.items.length}</div>
-                </div>
-              </div>
-              <div class="doc-item-toggle">▼</div>
-            </div>
-            <div class="doc-item-content" id="doc-content-${i}"></div>
-          </div>
-        `).join('');
+        docList.innerHTML = `
+          <table class="doc-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${this.items.map((doc, i) => `
+                <tr onclick="Documents.openViewer(${i})">
+                  <td>
+                    <div class="doc-name">
+                      <div class="doc-name-icon">${this.getIcon(doc.type)}</div>
+                      ${this.escapeHtml(doc.name)}
+                    </div>
+                  </td>
+                  <td>
+                    <span class="doc-type-badge">${this.escapeHtml(doc.type)}</span>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
       },
 
-      toggle(index) {
-        const item = document.getElementById(`doc-${index}`);
-        const content = document.getElementById(`doc-content-${index}`);
+      async openViewer(index) {
+        const doc = this.items[index];
+        const overlay = document.getElementById('docViewerOverlay');
+        const title = document.getElementById('docViewerTitle');
+        const content = document.getElementById('docViewerContent');
         
-        // Close all others
-        document.querySelectorAll('.doc-item').forEach((el, i) => {
-          if (i !== index) el.classList.remove('expanded');
-        });
+        // Open modal
+        overlay.classList.add('open');
+        title.textContent = doc.name;
+        document.body.style.overflow = 'hidden';
         
-        // Toggle this one
-        const isExpanded = item.classList.toggle('expanded');
+        // Show loading
+        content.innerHTML = `
+          <div class="doc-viewer-loading">
+            <div class="typing"><span></span><span></span><span></span></div>
+            Loading document...
+          </div>
+        `;
         
-        // Render content if expanding (lazy load)
-        if (isExpanded && !content.innerHTML) {
-          content.innerHTML = marked.parse(this.items[index].content);
+        // Check cache first
+        if (this.contentCache[doc.id]) {
+          content.innerHTML = marked.parse(this.contentCache[doc.id]);
+          return;
+        }
+        
+        // Fetch content
+        try {
+          const fullObj = await Vertesia.getObject(doc.id);
+          let text = '';
+          
+          if (fullObj.content?.source) {
+            const source = fullObj.content.source;
+            if (typeof source === 'string') {
+              if (source.startsWith('gs://') || source.startsWith('s3://') || source.includes('/')) {
+                text = await Vertesia.getContent(source);
+              } else {
+                text = source;
+              }
+            } else if (typeof source === 'object') {
+              const fileRef = source.file || source.store || source.path;
+              if (fileRef) text = await Vertesia.getContent(fileRef);
+            }
+          } else if (fullObj.text) {
+            text = fullObj.text;
+          }
+          
+          // Cache it
+          this.contentCache[doc.id] = text;
+          
+          // Render
+          content.innerHTML = text ? marked.parse(text) : '<p>No content available.</p>';
+          
+        } catch (error) {
+          console.error('[Docs] Failed to load content:', error);
+          content.innerHTML = `<div class="error-state">Failed to load document: ${error.message}</div>`;
         }
       },
 
-      formatSize(bytes) {
-        if (bytes < 1024) return bytes + ' B';
-        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+      closeViewer(event) {
+        // If event exists, only close if clicking the overlay itself
+        if (event && event.target !== event.currentTarget) return;
+        
+        document.getElementById('docViewerOverlay').classList.remove('open');
+        document.body.style.overflow = '';
       },
 
       escapeHtml(text) {
@@ -820,6 +987,13 @@
     // INIT
     // ============================================
     Documents.load();
+    
+    // Close modal on Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        Documents.closeViewer();
+      }
+    });
   </script>
 </body>
 </html>
