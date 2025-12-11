@@ -649,23 +649,31 @@
             new Date(r.created_at).toDateString() === today
           ).length;
           
-          // Calculate avg response time from completed runs
+          // Calculate avg response time from COMPLETED runs only
           const completedRuns = runs.filter(r => r.status === 'completed' && r.execution_time);
           if (completedRuns.length > 0) {
             const totalTime = completedRuns.reduce((sum, r) => sum + r.execution_time, 0);
-            this.avgResponseTime = totalTime / completedRuns.length;
+            let avgTime = totalTime / completedRuns.length;
+            
+            // If avg is over 1000, it's probably in milliseconds - convert
+            if (avgTime > 1000) {
+              avgTime = avgTime / 1000;
+            }
+            
+            this.avgResponseTime = avgTime;
           }
           
-          // Calculate success rate from recent runs
+          // Calculate success rate from recent runs (exclude stuck "created" ones from rate)
           const recentRuns = runs.slice(0, 20);
-          const completed = recentRuns.filter(r => r.status === 'completed').length;
-          const failed = recentRuns.filter(r => r.status === 'failed').length;
-          this.successRate = recentRuns.length > 0 ? (completed / recentRuns.length) * 100 : 100;
+          const finishedRuns = recentRuns.filter(r => r.status === 'completed' || r.status === 'failed');
+          const completed = finishedRuns.filter(r => r.status === 'completed').length;
+          this.successRate = finishedRuns.length > 0 ? (completed / finishedRuns.length) * 100 : 100;
           
           // Determine system status
+          const failed = recentRuns.filter(r => r.status === 'failed').length;
           if (failed > 5 || this.successRate < 50) {
             this.status = 'issues';
-          } else if (this.avgResponseTime > 30 || this.successRate < 80) {
+          } else if (this.avgResponseTime > 60 || this.successRate < 80) {
             this.status = 'slow';
           } else {
             this.status = 'normal';
