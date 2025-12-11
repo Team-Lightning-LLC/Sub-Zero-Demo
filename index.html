@@ -596,12 +596,7 @@
             type: 'conversation',
             interaction: CONFIG.INTERACTION,
             data: {
-              question: question,
-              conversation_history: conversationHistory.map(m => 
-                `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`
-              ).join('\n')
-            },
-            config: {
+              task: question,
               environment: CONFIG.ENVIRONMENT_ID,
               model: CONFIG.MODEL
             }
