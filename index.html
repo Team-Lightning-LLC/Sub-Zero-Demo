@@ -428,90 +428,80 @@
       const typingId = showTyping();
 
       try {
-        // Call Vertesia async execute
-        const response = await apiCall('/execute/async', {
+        // Step 1: Create a run
+        const runResponse = await fetch(`${CONFIG.BASE_URL}/runs`, {
           method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${CONFIG.API_KEY}`,
+            'Content-Type': 'application/json',
+            'x-interaction-tag': 'latest'
+          },
           body: JSON.stringify({
-            type: 'conversation',
             interaction: CONFIG.INTERACTION,
             data: {
-              question: question,
-              conversation_history: conversationHistory.slice(-6)
+              task: question
             },
             config: {
               environment: CONFIG.ENVIRONMENT_ID,
               model: CONFIG.MODEL
-            }
+            },
+            stream: false
           })
         });
 
-        console.log('[Chat] Execute response:', response);
+        if (!runResponse.ok) {
+          throw new Error(`Run creation failed: ${runResponse.status}`);
+        }
 
-        // Handle different response formats
-        let workflowId = response.workflowId || response.workflow_id;
-        let runId = response.runId || response.run_id || response.id;
+        const runData = await runResponse.json();
+        console.log('[Chat] Run created:', runData);
+
+        // Get the run ID (could be id, runId, run_id)
+        const runId = runData.id || runData.runId || runData.run_id;
         
-        // If response has a result directly, use it
-        if (response.result || response.output || response.text || response.content) {
-          removeTyping(typingId);
-          const answer = response.result || response.output || response.text || response.content;
-          addMessage(answer, 'assistant');
-          conversationHistory.push({ role: 'user', content: question });
-          conversationHistory.push({ role: 'assistant', content: answer });
-          return;
+        if (!runId) {
+          throw new Error('No run ID returned');
         }
 
-        // If we have workflow info, try streaming
-        if (workflowId && runId) {
-          const answer = await streamResponse(workflowId, runId, typingId);
-          conversationHistory.push({ role: 'user', content: question });
-          conversationHistory.push({ role: 'assistant', content: answer });
-        } else {
-          // Try polling the run status
-          console.log('[Chat] No workflow/run IDs, checking response structure...');
-          removeTyping(typingId);
-          addMessage('Request sent. The Document-Chat interaction may need to be configured in Vertesia.', 'assistant');
-        }
+        // Step 2: Stream the response
+        const answer = await streamRun(runId, typingId);
+        
+        // Update conversation history
+        conversationHistory.push({ role: 'user', content: question });
+        conversationHistory.push({ role: 'assistant', content: answer });
 
       } catch (error) {
         console.error('[Chat] Error:', error);
         removeTyping(typingId);
-        addMessage(`Error: ${error.message}. Make sure the "Document-Chat" interaction exists in Vertesia.`, 'assistant');
+        addMessage(`Error: ${error.message}`, 'assistant');
       } finally {
         isLoading = false;
         document.getElementById('sendBtn').disabled = false;
       }
     }
 
-    async function streamResponse(workflowId, runId, typingId) {
-      // URL encode the workflowId (it contains colons like "generation:ExecuteConversationWorkflow:...")
-      const encodedWorkflowId = encodeURIComponent(workflowId);
-      const encodedRunId = encodeURIComponent(runId);
-      
-      // Try /messages endpoint (based on SDK: workflows.streamMessages)
-      const url = `${CONFIG.BASE_URL}/workflows/${encodedWorkflowId}/runs/${encodedRunId}/messages`;
+    async function streamRun(runId, typingId) {
+      // Stream endpoint uses access_token as query param
+      const url = `${CONFIG.BASE_URL}/runs/${runId}/stream?access_token=${CONFIG.API_KEY}`;
       
       console.log('[Stream] URL:', url);
       
       try {
         const response = await fetch(url, {
+          method: 'GET',
           headers: {
-            'Authorization': `Bearer ${CONFIG.API_KEY}`,
             'Accept': 'text/event-stream'
           }
         });
 
         if (!response.ok) {
-          // If /messages fails, try polling the run result instead
-          console.log('[Stream] Messages endpoint failed, trying to poll result...');
-          return await pollForResult(workflowId, runId, typingId);
+          throw new Error(`Stream failed: ${response.status}`);
         }
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let fullText = '';
         let messageEl = null;
-        let hasReceivedAnswer = false;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -526,22 +516,18 @@
                 const data = JSON.parse(line.slice(6));
                 console.log('[Stream] Data:', data);
                 
-                // Check for 'answer' type message (from MarkdownViewer pattern)
-                if (data.type === 'answer' && data.message && !hasReceivedAnswer) {
-                  hasReceivedAnswer = true;
+                // Check for answer/message content
+                if (data.type === 'answer' && data.message) {
                   fullText = data.message;
                   removeTyping(typingId);
                   addMessage(fullText, 'assistant');
                   return fullText;
                 }
                 
-                // Also check for other content formats
-                const text = data.content || data.text || data.delta || data.message || 
-                            (data.choices?.[0]?.delta?.content) || '';
-                
-                if (text && !hasReceivedAnswer) {
+                // Handle streaming text chunks
+                const text = data.content || data.text || data.delta || data.message || '';
+                if (text) {
                   fullText += text;
-
                   if (!messageEl) {
                     removeTyping(typingId);
                     messageEl = addMessage(fullText, 'assistant', true);
@@ -551,8 +537,8 @@
                 }
                 
                 // Check for completion
-                if (data.type === 'complete' || data.type === 'done') {
-                  return fullText;
+                if (data.type === 'complete' || data.type === 'done' || data.type === 'end') {
+                  if (fullText) return fullText;
                 }
               } catch (e) {
                 // Non-JSON line, skip
@@ -561,72 +547,22 @@
           }
         }
 
-        if (!fullText) {
-          return await pollForResult(workflowId, runId, typingId);
+        // If we got text but no explicit completion
+        if (fullText) {
+          return fullText;
         }
 
-        return fullText;
+        // No response received
+        removeTyping(typingId);
+        addMessage('Response completed.', 'assistant');
+        return '';
 
       } catch (error) {
         console.error('[Stream] Error:', error);
-        // Fallback to polling
-        return await pollForResult(workflowId, runId, typingId);
+        removeTyping(typingId);
+        addMessage(`Stream error: ${error.message}`, 'assistant');
+        return '';
       }
-    }
-    
-    // Fallback: Poll for run result
-    async function pollForResult(workflowId, runId, typingId) {
-      console.log('[Poll] Polling for result...');
-      const maxAttempts = 30;
-      const pollInterval = 2000; // 2 seconds
-      
-      for (let i = 0; i < maxAttempts; i++) {
-        try {
-          const encodedWorkflowId = encodeURIComponent(workflowId);
-          const encodedRunId = encodeURIComponent(runId);
-          
-          // Try to get run status/result
-          const response = await fetch(
-            `${CONFIG.BASE_URL}/workflows/${encodedWorkflowId}/runs/${encodedRunId}`,
-            {
-              headers: {
-                'Authorization': `Bearer ${CONFIG.API_KEY}`,
-                'Content-Type': 'application/json'
-              }
-            }
-          );
-          
-          if (response.ok) {
-            const data = await response.json();
-            console.log('[Poll] Run data:', data);
-            
-            // Check if complete
-            if (data.status === 'completed' || data.status === 'COMPLETED') {
-              const answer = data.result || data.output || data.response || 
-                           data.data?.result || data.data?.output || '';
-              if (answer) {
-                removeTyping(typingId);
-                addMessage(answer, 'assistant');
-                return answer;
-              }
-            }
-            
-            // Check if failed
-            if (data.status === 'failed' || data.status === 'FAILED') {
-              throw new Error('Workflow failed');
-            }
-          }
-        } catch (e) {
-          console.log('[Poll] Attempt', i + 1, 'error:', e.message);
-        }
-        
-        await new Promise(r => setTimeout(r, pollInterval));
-      }
-      
-      // Timeout - show generic message
-      removeTyping(typingId);
-      addMessage('The request is being processed. Please check back in a moment.', 'assistant');
-      return '';
     }
 
     function addMessage(text, role, streaming = false) {
