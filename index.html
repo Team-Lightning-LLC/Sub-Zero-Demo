@@ -677,7 +677,7 @@
         `;
       },
 
-      async openViewer(index) {
+      async openViewer(index, targetPage = null) {
         const doc = this.items[index];
         const overlay = document.getElementById('docViewerOverlay');
         const title = document.getElementById('docViewerTitle');
@@ -685,7 +685,7 @@
         
         // Open modal
         overlay.classList.add('open');
-        title.textContent = doc.name;
+        title.textContent = doc.name + (targetPage ? ` - Page ${targetPage}` : '');
         document.body.style.overflow = 'hidden';
         
         // Show loading
@@ -726,9 +726,12 @@
               body: JSON.stringify({ file: fileRef, format: 'original' })
             });
             
+            // Add page fragment if specified
+            const pdfUrl = targetPage ? `${url}#page=${targetPage}` : url;
+            
             content.innerHTML = `
               <iframe 
-                src="${url}" 
+                src="${pdfUrl}" 
                 style="width: 100%; height: 100%; border: none;"
                 title="${this.escapeHtml(doc.name)}"
               ></iframe>
@@ -963,8 +966,8 @@
           }
         };
         
-        // Cycle every 8 seconds
-        div.statusInterval = setInterval(cycleStatus, 8000);
+        // Cycle every 2 seconds
+        div.statusInterval = setInterval(cycleStatus, 2000);
         
         // Store original remove function and override to clear interval
         const originalRemove = div.remove.bind(div);
@@ -1020,10 +1023,17 @@
       const linkText = link.textContent.trim();
       const href = link.getAttribute('href') || '';
       
+      // Parse page number if present (e.g., "Manual.pdf - Page 5" or "- Pages 355-357")
+      let targetPage = null;
+      const pageMatch = linkText.match(/[-–]\s*[Pp]ages?\s*(\d+)/);
+      if (pageMatch) {
+        targetPage = parseInt(pageMatch[1], 10);
+      }
+      
       // Check if this matches any document name
       const docIndex = Documents.items.findIndex(doc => {
         const docName = doc.name.toLowerCase();
-        const searchText = linkText.toLowerCase();
+        const searchText = linkText.toLowerCase().split(/[-–]/)[0].trim(); // Get part before " - Page X"
         const searchHref = href.toLowerCase();
         
         return docName === searchText || 
@@ -1034,7 +1044,7 @@
       
       if (docIndex !== -1) {
         e.preventDefault();
-        Documents.openViewer(docIndex);
+        Documents.openViewer(docIndex, targetPage);
       }
     });
   </script>
