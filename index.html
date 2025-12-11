@@ -592,7 +592,7 @@
     };
 
     // ============================================
-    // CHAT (Clean implementation)
+    // CHAT (Clean implementation with progress)
     // ============================================
     const Chat = {
       history: [],
@@ -608,7 +608,8 @@
         this.setLoading(true);
         this.addMessage(question, 'user');
         
-        const typingEl = this.showTyping();
+        // Show status indicator instead of just dots
+        const statusEl = this.showStatus('Connecting...');
 
         try {
           // Build task string with conversation history
@@ -623,42 +624,101 @@
           console.log('[Chat] Sending task:', task);
 
           // Execute async - get runId and workflowId
-          const { runId, workflowId } = await Vertesia.executeChat(task);
+          const response = await Vertesia.executeChat(task);
           
-          console.log('[Chat] Got runId:', runId, 'workflowId:', workflowId);
+          console.log('[Chat] Full response:', response);
+          
+          const runId = response.runId || response.run_id;
+          const workflowId = response.workflowId || response.workflow_id;
+          
+          console.log('[Chat] runId:', runId, 'workflowId:', workflowId);
 
           if (!runId || !workflowId) {
             throw new Error('Missing runId or workflowId in response');
           }
 
+          this.updateStatus(statusEl, 'Processing...');
+
           // Stream the response
           let answer = '';
           let answered = false;
+          let streamingText = '';
+          let messageEl = null;
 
           await Vertesia.streamResponse(
             workflowId,
             runId,
             // onMessage
             (data) => {
-              // Look for the answer
+              console.log('[Chat] Stream data:', JSON.stringify(data, null, 2));
+              
+              // Update status with progress messages
+              if (data.type === 'update' && data.message) {
+                this.updateStatus(statusEl, data.message);
+              }
+              
+              // Check for answer in multiple formats
+              // Format 1: type: "answer" with message
               if (data.type === 'answer' && data.message && !answered) {
                 answered = true;
                 answer = data.message;
-                typingEl.remove();
+                statusEl.remove();
                 this.addMessage(answer, 'assistant');
+                return;
+              }
+              
+              // Format 2: type: "complete" with result/content
+              if (data.type === 'complete' && !answered) {
+                const content = data.result || data.content || data.message || data.output;
+                if (content) {
+                  answered = true;
+                  answer = typeof content === 'string' ? content : JSON.stringify(content);
+                  statusEl.remove();
+                  this.addMessage(answer, 'assistant');
+                  return;
+                }
+              }
+              
+              // Format 3: Streaming text chunks (delta/content/text)
+              const chunk = data.delta || data.content || data.text;
+              if (chunk && typeof chunk === 'string' && !answered) {
+                streamingText += chunk;
+                if (!messageEl) {
+                  statusEl.remove();
+                  messageEl = this.addMessage(streamingText, 'assistant');
+                } else {
+                  messageEl.innerHTML = marked.parse(streamingText);
+                }
+              }
+              
+              // Format 4: Direct message field (not an update)
+              if (data.message && data.type !== 'update' && !answered) {
+                answered = true;
+                answer = data.message;
+                statusEl.remove();
+                this.addMessage(answer, 'assistant');
+                return;
               }
             },
             // onComplete
             () => {
+              console.log('[Chat] Stream complete. Answered:', answered, 'StreamingText:', streamingText.length);
+              
+              // If we got streaming text, that's our answer
+              if (streamingText && !answered) {
+                answered = true;
+                answer = streamingText;
+              }
+              
               if (!answered) {
-                typingEl.remove();
-                this.addMessage('No response received.', 'assistant');
+                statusEl.remove();
+                this.addMessage('The agent completed but returned no response. Check console for details.', 'assistant');
               }
               this.setLoading(false);
             },
             // onError
             (error) => {
-              typingEl.remove();
+              statusEl.remove();
               this.addMessage(`Error: ${error.message}`, 'assistant');
               this.setLoading(false);
             }
@@ -672,7 +732,7 @@
 
         } catch (error) {
           console.error('[Chat] Error:', error);
-          typingEl.remove();
+          statusEl.remove();
           this.addMessage(`Error: ${error.message}`, 'assistant');
           this.setLoading(false);
         }
@@ -688,14 +748,26 @@
         return div;
       },
 
-      showTyping() {
+      showStatus(text) {
         const container = document.getElementById('chatMessages');
         const div = document.createElement('div');
-        div.className = 'message assistant';
-        div.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+        div.className = 'message assistant status-message';
+        div.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div class="typing"><span></span><span></span><span></span></div>
+            <span class="status-text" style="font-size: 12px; opacity: 0.7;">${Documents.escapeHtml(text)}</span>
+          </div>
+        `;
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
         return div;
+      },
+      
+      updateStatus(el, text) {
+        const statusText = el.querySelector('.status-text');
+        if (statusText) {
+          statusText.textContent = text;
+        }
       },
 
       setLoading(loading) {
