@@ -78,13 +78,8 @@
       transition: all 0.2s;
     }
     
-    .doc-item:hover {
-      border-color: var(--charcoal-light);
-    }
-    
-    .doc-item.expanded {
-      border-color: var(--charcoal);
-    }
+    .doc-item:hover { border-color: var(--charcoal-light); }
+    .doc-item.expanded { border-color: var(--charcoal); }
     
     .doc-item-header {
       padding: 14px 16px;
@@ -96,20 +91,14 @@
       transition: background 0.2s;
     }
     
-    .doc-item-header:hover {
-      background: var(--beige-light);
-    }
+    .doc-item-header:hover { background: var(--beige-light); }
     
     .doc-item.expanded .doc-item-header {
       background: var(--charcoal);
       color: var(--white);
     }
     
-    .doc-item-info {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
+    .doc-item-info { display: flex; align-items: center; gap: 12px; }
     
     .doc-item-icon {
       width: 36px;
@@ -128,26 +117,10 @@
       border-color: rgba(255,255,255,0.2);
     }
     
-    .doc-item-title {
-      font-size: 14px;
-      font-weight: 500;
-    }
-    
-    .doc-item-meta {
-      font-size: 11px;
-      opacity: 0.6;
-      margin-top: 2px;
-    }
-    
-    .doc-item-toggle {
-      font-size: 12px;
-      opacity: 0.5;
-      transition: transform 0.2s;
-    }
-    
-    .doc-item.expanded .doc-item-toggle {
-      transform: rotate(180deg);
-    }
+    .doc-item-title { font-size: 14px; font-weight: 500; }
+    .doc-item-meta { font-size: 11px; opacity: 0.6; margin-top: 2px; }
+    .doc-item-toggle { font-size: 12px; opacity: 0.5; transition: transform 0.2s; }
+    .doc-item.expanded .doc-item-toggle { transform: rotate(180deg); }
     
     .doc-item-content {
       display: none;
@@ -159,9 +132,7 @@
       line-height: 1.7;
     }
     
-    .doc-item.expanded .doc-item-content {
-      display: block;
-    }
+    .doc-item.expanded .doc-item-content { display: block; }
     
     /* Markdown styles in doc content */
     .doc-item-content h1 { font-size: 20px; color: var(--charcoal); margin-bottom: 10px; border-bottom: 2px solid var(--beige); padding-bottom: 10px; }
@@ -203,18 +174,8 @@
       background: var(--cream); 
     }
     
-    .chat-header h2 { 
-      font-size: 16px; 
-      font-weight: 600; 
-      color: var(--charcoal); 
-    }
-    
-    .chat-subtitle { 
-      font-size: 12px; 
-      color: var(--charcoal-light); 
-      margin-top: 4px; 
-      opacity: 0.7; 
-    }
+    .chat-header h2 { font-size: 16px; font-weight: 600; color: var(--charcoal); }
+    .chat-subtitle { font-size: 12px; color: var(--charcoal-light); margin-top: 4px; opacity: 0.7; }
     
     .suggestions { 
       padding: 14px 24px; 
@@ -231,11 +192,7 @@
       opacity: 0.7; 
     }
     
-    .suggestions-list { 
-      display: flex; 
-      flex-wrap: wrap; 
-      gap: 8px; 
-    }
+    .suggestions-list { display: flex; flex-wrap: wrap; gap: 8px; }
     
     .suggestion-btn { 
       padding: 8px 14px; 
@@ -312,10 +269,7 @@
       background: var(--white); 
     }
     
-    .chat-input-wrapper { 
-      display: flex; 
-      gap: 12px; 
-    }
+    .chat-input-wrapper { display: flex; gap: 12px; }
     
     .chat-input { 
       flex: 1; 
@@ -373,10 +327,10 @@
       <div class="suggestions">
         <div class="suggestions-label">Try asking</div>
         <div class="suggestions-list">
-          <button class="suggestion-btn" onclick="askQuestion('What causes voids?')">What causes voids?</button>
-          <button class="suggestion-btn" onclick="askQuestion('What PPE do I need for seals?')">PPE for seals?</button>
-          <button class="suggestion-btn" onclick="askQuestion('How often should I replace seals?')">Seal interval?</button>
-          <button class="suggestion-btn" onclick="askQuestion('What is the part number for seals?')">Seal part #?</button>
+          <button class="suggestion-btn" onclick="Chat.ask('What causes voids?')">What causes voids?</button>
+          <button class="suggestion-btn" onclick="Chat.ask('What PPE do I need for seals?')">PPE for seals?</button>
+          <button class="suggestion-btn" onclick="Chat.ask('How often should I replace seals?')">Seal interval?</button>
+          <button class="suggestion-btn" onclick="Chat.ask('What is the part number for seals?')">Seal part #?</button>
         </div>
       </div>
       
@@ -388,8 +342,8 @@
       
       <div class="chat-input-area">
         <div class="chat-input-wrapper">
-          <textarea class="chat-input" id="chatInput" placeholder="Ask about servicing and maintenance..." rows="1" onkeydown="handleKeyDown(event)"></textarea>
-          <button class="send-btn" id="sendBtn" onclick="sendMessage()">▶</button>
+          <textarea class="chat-input" id="chatInput" placeholder="Ask about servicing and maintenance..." rows="1" onkeydown="Chat.handleKey(event)"></textarea>
+          <button class="send-btn" id="sendBtn" onclick="Chat.send()">▶</button>
         </div>
       </div>
     </div>
@@ -397,365 +351,376 @@
 
   <script>
     // ============================================
-    // VERTESIA CONFIGURATION
+    // CONFIGURATION
     // ============================================
     const CONFIG = {
       BASE_URL: 'https://api.vertesia.io/api/v1',
       API_KEY: 'sk-780d20f68cd5c5b0682baee88db0af70',
       ENVIRONMENT_ID: '681915c6a01fb262a410c161',
       MODEL: 'claude-sonnet-4',
-      INTERACTION: 'Document Chat'
+      INTERACTION: 'DocumentChat'  // Must match your Vertesia interaction name exactly
     };
 
     // ============================================
-    // STATE
+    // VERTESIA API (Clean implementation)
     // ============================================
-    let documents = [];
-    let conversationHistory = [];
-    let isLoading = false;
-
-    // ============================================
-    // DOCUMENT LOADING
-    // ============================================
-    async function loadDocuments() {
-      const docList = document.getElementById('docList');
-      
-      try {
-        // Load all objects
-        const response = await fetch(`${CONFIG.BASE_URL}/objects?limit=1000`, {
+    const Vertesia = {
+      async call(endpoint, options = {}) {
+        const url = `${CONFIG.BASE_URL}${endpoint}`;
+        const response = await fetch(url, {
           headers: {
             'Authorization': `Bearer ${CONFIG.API_KEY}`,
-            'Content-Type': 'application/json'
-          }
+            'Content-Type': 'application/json',
+            ...options.headers
+          },
+          ...options
         });
         
-        if (!response.ok) throw new Error(`Failed to load: ${response.status}`);
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`API ${response.status}: ${text}`);
+        }
         
-        const data = await response.json();
-        const objects = Array.isArray(data) ? data : data.objects || [];
-        
-        console.log(`[Docs] Found ${objects.length} objects`);
+        return response.json();
+      },
 
-        // Load each document's content
-        for (const obj of objects) {
-          try {
-            const fullObj = await getObject(obj.id);
-            let content = '';
+      // Load all document objects
+      async loadObjects() {
+        return this.call('/objects?limit=1000');
+      },
 
-            if (fullObj.content?.source) {
-              const source = fullObj.content.source;
-              if (typeof source === 'string') {
-                if (source.startsWith('gs://') || source.startsWith('s3://') || source.includes('/')) {
-                  content = await downloadText(source);
-                } else {
-                  content = source;
-                }
-              } else if (typeof source === 'object') {
-                const fileRef = source.file || source.store || source.path;
-                if (fileRef) content = await downloadText(fileRef);
-              }
-            } else if (fullObj.text) {
-              content = fullObj.text;
-            }
+      // Get single object
+      async getObject(id) {
+        return this.call(`/objects/${encodeURIComponent(id)}`);
+      },
 
-            if (content && content.length > 50) {
-              documents.push({
-                id: obj.id,
-                name: obj.name || 'Untitled',
-                content: content,
-                created: obj.created_at
-              });
-              console.log(`[Docs] Loaded: ${obj.name}`);
-            }
-          } catch (err) {
-            console.warn(`[Docs] Failed to load ${obj.name}:`, err.message);
-          }
-        }
-
-        if (documents.length === 0) {
-          docList.innerHTML = '<div class="error-state">No documents found</div>';
-          return;
-        }
-
-        renderDocumentList();
-
-      } catch (error) {
-        console.error('[Docs] Load failed:', error);
-        docList.innerHTML = `<div class="error-state">Failed to load documents: ${error.message}</div>`;
-      }
-    }
-
-    async function getObject(id) {
-      const response = await fetch(`${CONFIG.BASE_URL}/objects/${encodeURIComponent(id)}`, {
-        headers: {
-          'Authorization': `Bearer ${CONFIG.API_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      if (!response.ok) throw new Error('Failed to get object');
-      return response.json();
-    }
-
-    async function downloadText(fileRef) {
-      const urlResponse = await fetch(`${CONFIG.BASE_URL}/objects/download-url`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${CONFIG.API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ file: fileRef, format: 'original' })
-      });
-      
-      if (!urlResponse.ok) throw new Error('Failed to get download URL');
-      const urlData = await urlResponse.json();
-      
-      const contentResponse = await fetch(urlData.url);
-      if (!contentResponse.ok) throw new Error('Download failed');
-      return contentResponse.text();
-    }
-
-    // ============================================
-    // DOCUMENT LIST RENDERING
-    // ============================================
-    function renderDocumentList() {
-      const docList = document.getElementById('docList');
-      
-      docList.innerHTML = documents.map((doc, i) => `
-        <div class="doc-item" id="doc-${i}">
-          <div class="doc-item-header" onclick="toggleDocument(${i})">
-            <div class="doc-item-info">
-              <div class="doc-item-icon">📄</div>
-              <div>
-                <div class="doc-item-title">${escapeHtml(doc.name)}</div>
-                <div class="doc-item-meta">${formatBytes(doc.content.length)} • ${documents.length > 0 ? i + 1 + ' of ' + documents.length : ''}</div>
-              </div>
-            </div>
-            <div class="doc-item-toggle">▼</div>
-          </div>
-          <div class="doc-item-content" id="doc-content-${i}"></div>
-        </div>
-      `).join('');
-    }
-
-    function toggleDocument(index) {
-      const item = document.getElementById(`doc-${index}`);
-      const content = document.getElementById(`doc-content-${index}`);
-      
-      // Close all others
-      document.querySelectorAll('.doc-item').forEach((el, i) => {
-        if (i !== index) {
-          el.classList.remove('expanded');
-        }
-      });
-      
-      // Toggle this one
-      const isExpanded = item.classList.toggle('expanded');
-      
-      // Render content if expanding
-      if (isExpanded && content.innerHTML === '') {
-        content.innerHTML = marked.parse(documents[index].content);
-      }
-    }
-
-    function formatBytes(bytes) {
-      if (bytes < 1024) return bytes + ' B';
-      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-    }
-
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
-    }
-
-    // ============================================
-    // CHAT FUNCTIONALITY
-    // ============================================
-    async function sendMessage() {
-      const input = document.getElementById('chatInput');
-      const question = input.value.trim();
-      if (!question || isLoading) return;
-
-      input.value = '';
-      isLoading = true;
-      document.getElementById('sendBtn').disabled = true;
-
-      addMessage(question, 'user');
-      const typingId = showTyping();
-
-      try {
-        // Step 1: Create run via /execute/async
-        const response = await fetch(`${CONFIG.BASE_URL}/execute/async`, {
+      // Get download URL and fetch content
+      async getContent(fileRef) {
+        const { url } = await this.call('/objects/download-url', {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${CONFIG.API_KEY}`,
-            'Content-Type': 'application/json'
-          },
+          body: JSON.stringify({ file: fileRef, format: 'original' })
+        });
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Download failed');
+        return response.text();
+      },
+
+      // Execute async interaction - returns { runId, workflowId }
+      async executeChat(task) {
+        return this.call('/execute/async', {
+          method: 'POST',
           body: JSON.stringify({
             type: 'conversation',
             interaction: CONFIG.INTERACTION,
-            data: {
-              task: question,
+            data: { task },
+            config: {
               environment: CONFIG.ENVIRONMENT_ID,
               model: CONFIG.MODEL
             }
           })
         });
+      },
 
-        if (!response.ok) {
-          throw new Error(`Execute failed: ${response.status}`);
-        }
-
-        const data = await response.json();
-        console.log('[Chat] Execute response:', data);
-
-        const runId = data.runId || data.run_id || data.id;
+      // Stream response from workflow run
+      async streamResponse(workflowId, runId, onMessage, onComplete, onError) {
+        const url = `${CONFIG.BASE_URL}/workflows/runs/${workflowId}/${runId}/stream?since=${Date.now()}&access_token=${CONFIG.API_KEY}`;
         
-        if (!runId) {
-          throw new Error('No run ID returned');
-        }
-
-        // Step 2: Stream response
-        const answer = await streamRun(runId, typingId);
+        console.log('[Stream] Opening:', url);
         
-        conversationHistory.push({ role: 'user', content: question });
-        conversationHistory.push({ role: 'assistant', content: answer });
-
-      } catch (error) {
-        console.error('[Chat] Error:', error);
-        removeTyping(typingId);
-        addMessage(`Error: ${error.message}`, 'assistant');
-      } finally {
-        isLoading = false;
-        document.getElementById('sendBtn').disabled = false;
-      }
-    }
-
-    async function streamRun(runId, typingId) {
-      const url = `${CONFIG.BASE_URL}/runs/${runId}/stream?access_token=${CONFIG.API_KEY}`;
-      console.log('[Stream] URL:', url);
-      
-      try {
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: { 'Accept': 'text/event-stream' }
-        });
-
-        if (!response.ok) {
-          throw new Error(`Stream failed: ${response.status}`);
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let fullText = '';
-        let messageEl = null;
-        let hasAnswer = false;
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
+        try {
+          const response = await fetch(url);
+          
+          if (!response.ok) {
+            throw new Error(`Stream failed: ${response.status}`);
+          }
+          
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+          
+          while (true) {
+            const { done, value } = await reader.read();
+            
+            if (done) {
+              console.log('[Stream] Ended');
+              onComplete?.();
+              break;
+            }
+            
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop(); // Keep incomplete line
+            
+            for (const line of lines) {
+              if (!line.startsWith('data:')) continue;
+              
               try {
-                const data = JSON.parse(line.slice(6));
+                const data = JSON.parse(line.slice(5).trim());
                 console.log('[Stream] Data:', data);
+                onMessage?.(data);
                 
-                // Check for answer type
-                if (data.type === 'answer' && data.message && !hasAnswer) {
-                  hasAnswer = true;
-                  fullText = data.message;
-                  removeTyping(typingId);
-                  addMessage(fullText, 'assistant');
-                  return fullText;
+                // Check for completion signals
+                if (data.type === 'finish' || data.finish_reason === 'stop') {
+                  console.log('[Stream] Complete signal');
+                  onComplete?.();
+                  return;
                 }
-                
-                // Streaming text
-                const text = data.content || data.text || data.delta || data.message || '';
-                if (text && !hasAnswer) {
-                  fullText += text;
-                  if (!messageEl) {
-                    removeTyping(typingId);
-                    messageEl = addMessage(fullText, 'assistant', true);
-                  } else {
-                    updateMessage(messageEl, fullText);
-                  }
-                }
-                
-                // Completion
-                if (data.type === 'complete' || data.type === 'done') {
-                  if (fullText && !hasAnswer) return fullText;
-                }
-              } catch (e) {}
+              } catch (e) {
+                // Ignore parse errors for non-JSON lines
+              }
             }
           }
+        } catch (error) {
+          console.error('[Stream] Error:', error);
+          onError?.(error);
         }
+      }
+    };
 
-        if (fullText && !hasAnswer) return fullText;
+    // ============================================
+    // DOCUMENT LOADING
+    // ============================================
+    const Documents = {
+      items: [],
+
+      async load() {
+        const docList = document.getElementById('docList');
         
-        removeTyping(typingId);
-        addMessage('Response completed.', 'assistant');
-        return '';
+        try {
+          const data = await Vertesia.loadObjects();
+          const objects = Array.isArray(data) ? data : data.objects || [];
+          
+          console.log(`[Docs] Found ${objects.length} objects`);
 
-      } catch (error) {
-        console.error('[Stream] Error:', error);
-        removeTyping(typingId);
-        addMessage(`Stream error: ${error.message}`, 'assistant');
-        return '';
+          for (const obj of objects) {
+            try {
+              const fullObj = await Vertesia.getObject(obj.id);
+              let content = '';
+
+              // Try to get content from various sources
+              if (fullObj.content?.source) {
+                const source = fullObj.content.source;
+                if (typeof source === 'string') {
+                  if (source.startsWith('gs://') || source.startsWith('s3://') || source.includes('/')) {
+                    content = await Vertesia.getContent(source);
+                  } else {
+                    content = source;
+                  }
+                } else if (typeof source === 'object') {
+                  const fileRef = source.file || source.store || source.path;
+                  if (fileRef) content = await Vertesia.getContent(fileRef);
+                }
+              } else if (fullObj.text) {
+                content = fullObj.text;
+              }
+
+              if (content && content.length > 50) {
+                this.items.push({
+                  id: obj.id,
+                  name: obj.name || 'Untitled',
+                  content: content
+                });
+                console.log(`[Docs] Loaded: ${obj.name}`);
+              }
+            } catch (err) {
+              console.warn(`[Docs] Failed: ${obj.name}`, err.message);
+            }
+          }
+
+          if (this.items.length === 0) {
+            docList.innerHTML = '<div class="error-state">No documents found</div>';
+            return;
+          }
+
+          this.render();
+
+        } catch (error) {
+          console.error('[Docs] Load failed:', error);
+          docList.innerHTML = `<div class="error-state">Failed to load: ${error.message}</div>`;
+        }
+      },
+
+      render() {
+        const docList = document.getElementById('docList');
+        
+        docList.innerHTML = this.items.map((doc, i) => `
+          <div class="doc-item" id="doc-${i}">
+            <div class="doc-item-header" onclick="Documents.toggle(${i})">
+              <div class="doc-item-info">
+                <div class="doc-item-icon">📄</div>
+                <div>
+                  <div class="doc-item-title">${this.escapeHtml(doc.name)}</div>
+                  <div class="doc-item-meta">${this.formatSize(doc.content.length)} • ${i + 1} of ${this.items.length}</div>
+                </div>
+              </div>
+              <div class="doc-item-toggle">▼</div>
+            </div>
+            <div class="doc-item-content" id="doc-content-${i}"></div>
+          </div>
+        `).join('');
+      },
+
+      toggle(index) {
+        const item = document.getElementById(`doc-${index}`);
+        const content = document.getElementById(`doc-content-${index}`);
+        
+        // Close all others
+        document.querySelectorAll('.doc-item').forEach((el, i) => {
+          if (i !== index) el.classList.remove('expanded');
+        });
+        
+        // Toggle this one
+        const isExpanded = item.classList.toggle('expanded');
+        
+        // Render content if expanding (lazy load)
+        if (isExpanded && !content.innerHTML) {
+          content.innerHTML = marked.parse(this.items[index].content);
+        }
+      },
+
+      formatSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+      },
+
+      escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
       }
-    }
+    };
 
-    function addMessage(text, role, streaming = false) {
-      const container = document.getElementById('chatMessages');
-      const div = document.createElement('div');
-      div.className = `message ${role}`;
-      div.innerHTML = role === 'assistant' ? marked.parse(text) : escapeHtml(text);
-      container.appendChild(div);
-      container.scrollTop = container.scrollHeight;
-      return div;
-    }
+    // ============================================
+    // CHAT (Clean implementation)
+    // ============================================
+    const Chat = {
+      history: [],
+      isLoading: false,
 
-    function updateMessage(el, text) {
-      el.innerHTML = marked.parse(text);
-      document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
-    }
+      async send() {
+        const input = document.getElementById('chatInput');
+        const question = input.value.trim();
+        
+        if (!question || this.isLoading) return;
 
-    function showTyping() {
-      const container = document.getElementById('chatMessages');
-      const div = document.createElement('div');
-      div.className = 'message assistant';
-      div.id = 'typing-' + Date.now();
-      div.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
-      container.appendChild(div);
-      container.scrollTop = container.scrollHeight;
-      return div.id;
-    }
+        input.value = '';
+        this.setLoading(true);
+        this.addMessage(question, 'user');
+        
+        const typingEl = this.showTyping();
 
-    function removeTyping(id) {
-      const el = document.getElementById(id);
-      if (el) el.remove();
-    }
+        try {
+          // Build task string with conversation history
+          let task = question;
+          if (this.history.length > 0) {
+            const historyStr = this.history
+              .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+              .join('\n');
+            task = `Previous conversation:\n${historyStr}\n\nCurrent question: ${question}`;
+          }
 
-    function askQuestion(question) {
-      document.getElementById('chatInput').value = question;
-      sendMessage();
-    }
+          console.log('[Chat] Sending task:', task);
 
-    function handleKeyDown(e) {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
+          // Execute async - get runId and workflowId
+          const { runId, workflowId } = await Vertesia.executeChat(task);
+          
+          console.log('[Chat] Got runId:', runId, 'workflowId:', workflowId);
+
+          if (!runId || !workflowId) {
+            throw new Error('Missing runId or workflowId in response');
+          }
+
+          // Stream the response
+          let answer = '';
+          let answered = false;
+
+          await Vertesia.streamResponse(
+            workflowId,
+            runId,
+            // onMessage
+            (data) => {
+              // Look for the answer
+              if (data.type === 'answer' && data.message && !answered) {
+                answered = true;
+                answer = data.message;
+                typingEl.remove();
+                this.addMessage(answer, 'assistant');
+              }
+            },
+            // onComplete
+            () => {
+              if (!answered) {
+                typingEl.remove();
+                this.addMessage('No response received.', 'assistant');
+              }
+              this.setLoading(false);
+            },
+            // onError
+            (error) => {
+              typingEl.remove();
+              this.addMessage(`Error: ${error.message}`, 'assistant');
+              this.setLoading(false);
+            }
+          );
+
+          // Save to history
+          this.history.push({ role: 'user', content: question });
+          if (answer) {
+            this.history.push({ role: 'assistant', content: answer });
+          }
+
+        } catch (error) {
+          console.error('[Chat] Error:', error);
+          typingEl.remove();
+          this.addMessage(`Error: ${error.message}`, 'assistant');
+          this.setLoading(false);
+        }
+      },
+
+      addMessage(text, role) {
+        const container = document.getElementById('chatMessages');
+        const div = document.createElement('div');
+        div.className = `message ${role}`;
+        div.innerHTML = role === 'assistant' ? marked.parse(text) : Documents.escapeHtml(text);
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+        return div;
+      },
+
+      showTyping() {
+        const container = document.getElementById('chatMessages');
+        const div = document.createElement('div');
+        div.className = 'message assistant';
+        div.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+        return div;
+      },
+
+      setLoading(loading) {
+        this.isLoading = loading;
+        document.getElementById('sendBtn').disabled = loading;
+        document.getElementById('chatInput').disabled = loading;
+      },
+
+      handleKey(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          this.send();
+        }
+      },
+
+      ask(question) {
+        document.getElementById('chatInput').value = question;
+        this.send();
       }
-    }
+    };
 
     // ============================================
     // INIT
     // ============================================
-    loadDocuments();
+    Documents.load();
   </script>
 </body>
 </html>
