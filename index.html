@@ -230,6 +230,12 @@
       font-size: 14px;
     }
     
+    /* When showing PDF, remove padding */
+    .doc-viewer-content:has(iframe) {
+      padding: 0;
+      overflow: hidden;
+    }
+    
     .doc-viewer-content h1 { font-size: 24px; color: var(--charcoal); margin-bottom: 16px; border-bottom: 2px solid var(--beige); padding-bottom: 12px; }
     .doc-viewer-content h2 { font-size: 18px; color: var(--charcoal); margin: 28px 0 12px; font-weight: 600; }
     .doc-viewer-content h3 { font-size: 15px; color: var(--charcoal-light); margin: 20px 0 10px; font-weight: 600; }
@@ -444,13 +450,14 @@
     <!-- Right: Chat -->
     <div class="chat-panel">
       <div class="chat-header">
-        <h2>Machinery Servicing Assistant</h2>
+        <h2>Machinery Servicing Terminal</h2>
         <div class="chat-subtitle">Powered by Vertesia</div>
       </div>
       
+      
       <div class="chat-messages" id="chatMessages">
         <div class="message assistant">
-          <p>Hello! I'm your Machinery Servicing Assistant. I can search across all loaded documentation to answer your questions about safety, maintenance, troubleshooting, and parts.</p>
+          <p>Search across all loaded documentation to answer your questions about safety, maintenance, troubleshooting, and parts.</p>
         </div>
       </div>
       
@@ -615,6 +622,7 @@
             id: obj.id,
             name: obj.name || 'Untitled',
             type: this.inferType(obj),
+            fileType: this.getFileType(obj.name),
             source: obj.content?.source || null
           })).filter(doc => doc.name);
 
@@ -631,15 +639,23 @@
         }
       },
 
+      getFileType(name) {
+        const n = (name || '').toLowerCase();
+        if (n.endsWith('.pdf')) return 'pdf';
+        if (n.endsWith('.docx') || n.endsWith('.doc')) return 'docx';
+        if (n.endsWith('.xlsx') || n.endsWith('.xls')) return 'xlsx';
+        if (n.endsWith('.md')) return 'markdown';
+        if (n.endsWith('.txt')) return 'text';
+        return 'unknown';
+      },
+
       inferType(obj) {
         const name = (obj.name || '').toLowerCase();
         const props = obj.properties || {};
         
-        // Check properties first
         if (props.document_type) return props.document_type;
         if (props.type) return props.type;
         
-        // Infer from filename
         if (name.includes('manual')) return 'Equipment Manual';
         if (name.includes('maintenance') || name.includes('pm')) return 'Maintenance Instruction';
         if (name.includes('datasheet')) return 'Equipment Datasheet';
@@ -649,8 +665,14 @@
         return 'Document';
       },
 
-      getIcon(type) {
-        const t = type.toLowerCase();
+      getIcon(doc) {
+        // Icon by file type first
+        if (doc.fileType === 'pdf') return '📕';
+        if (doc.fileType === 'docx') return '📘';
+        if (doc.fileType === 'xlsx') return '📊';
+        
+        // Then by document type
+        const t = doc.type.toLowerCase();
         if (t.includes('manual')) return '📘';
         if (t.includes('maintenance')) return '🔧';
         if (t.includes('datasheet')) return '📊';
@@ -674,7 +696,7 @@
                 <tr onclick="Documents.openViewer(${i})">
                   <td>
                     <div class="doc-name">
-                      <div class="doc-name-icon">${this.getIcon(doc.type)}</div>
+                      <div class="doc-name-icon">${this.getIcon(doc)}</div>
                       ${this.escapeHtml(doc.name)}
                     </div>
                   </td>
@@ -707,38 +729,64 @@
           </div>
         `;
         
-        // Check cache first
-        if (this.contentCache[doc.id]) {
-          content.innerHTML = marked.parse(this.contentCache[doc.id]);
-          return;
-        }
-        
-        // Fetch content
         try {
+          // Get the full object to find the source
           const fullObj = await Vertesia.getObject(doc.id);
-          let text = '';
+          const source = fullObj.content?.source;
           
-          if (fullObj.content?.source) {
-            const source = fullObj.content.source;
-            if (typeof source === 'string') {
-              if (source.startsWith('gs://') || source.startsWith('s3://') || source.includes('/')) {
-                text = await Vertesia.getContent(source);
-              } else {
-                text = source;
-              }
-            } else if (typeof source === 'object') {
-              const fileRef = source.file || source.store || source.path;
-              if (fileRef) text = await Vertesia.getContent(fileRef);
-            }
-          } else if (fullObj.text) {
-            text = fullObj.text;
+          if (!source) {
+            content.innerHTML = '<div class="error-state">No content source found</div>';
+            return;
           }
           
-          // Cache it
-          this.contentCache[doc.id] = text;
+          // Get the file reference
+          let fileRef = typeof source === 'string' ? source : (source.file || source.store || source.path);
           
-          // Render
-          content.innerHTML = text ? marked.parse(text) : '<p>No content available.</p>';
+          if (!fileRef) {
+            // Source might be inline text
+            if (typeof source === 'string' && !source.includes('/')) {
+              content.innerHTML = marked.parse(source);
+              return;
+            }
+            content.innerHTML = '<div class="error-state">Could not determine file location</div>';
+            return;
+          }
+          
+          // For PDFs - get download URL and embed
+          if (doc.fileType === 'pdf') {
+            const { url } = await Vertesia.call('/objects/download-url', {
+              method: 'POST',
+              body: JSON.stringify({ file: fileRef, format: 'original' })
+            });
+            
+            content.innerHTML = `
+              <iframe 
+                src="${url}" 
+                style="width: 100%; height: 100%; border: none;"
+                title="${this.escapeHtml(doc.name)}"
+              ></iframe>
+            `;
+            return;
+          }
+          
+          // For text/markdown - fetch and render (with size limit)
+          const text = await Vertesia.getContent(fileRef);
+          
+          // If text is huge, truncate with warning
+          const MAX_CHARS = 500000; // ~500KB
+          if (text.length > MAX_CHARS) {
+            content.innerHTML = `
+              <div style="padding: 16px; background: #fff3cd; border-radius: 8px; margin-bottom: 20px; font-size: 13px;">
+                ⚠️ This document is very large (${Math.round(text.length/1000)}KB). Showing first portion only.
+              </div>
+              ${marked.parse(text.substring(0, MAX_CHARS))}
+              <div style="padding: 20px; text-align: center; color: var(--charcoal-light); border-top: 1px solid var(--beige); margin-top: 20px;">
+                ... Document truncated. Full document is ${Math.round(text.length/1000)}KB.
+              </div>
+            `;
+          } else {
+            content.innerHTML = marked.parse(text);
+          }
           
         } catch (error) {
           console.error('[Docs] Failed to load content:', error);
@@ -747,11 +795,13 @@
       },
 
       closeViewer(event) {
-        // If event exists, only close if clicking the overlay itself
         if (event && event.target !== event.currentTarget) return;
         
         document.getElementById('docViewerOverlay').classList.remove('open');
         document.body.style.overflow = '';
+        
+        // Clear content to stop any embedded PDFs
+        document.getElementById('docViewerContent').innerHTML = '';
       },
 
       escapeHtml(text) {
