@@ -288,52 +288,6 @@
     .chat-header h2 { font-size: 16px; font-weight: 600; color: var(--charcoal); }
     .chat-subtitle { font-size: 12px; color: var(--charcoal-light); margin-top: 4px; opacity: 0.7; }
     
-    .status-bar {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 10px 24px;
-      background: var(--beige-light);
-      border-bottom: 1px solid var(--beige);
-      font-size: 12px;
-    }
-    
-    .status-indicator {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #4a9c6d;
-    }
-    
-    .status-dot.normal { background: #4a9c6d; }
-    .status-dot.slow { background: #c9a227; }
-    .status-dot.issues { background: #b85c5c; }
-    
-    .status-text {
-      color: var(--charcoal-light);
-    }
-    
-    .status-separator {
-      width: 1px;
-      height: 12px;
-      background: var(--beige);
-    }
-    
-    .activity-count {
-      color: var(--charcoal-light);
-      margin-left: auto;
-    }
-    
-    .activity-count strong {
-      color: var(--charcoal);
-    }
-    
     .chat-messages { 
       flex: 1; 
       overflow: auto; 
@@ -466,16 +420,6 @@
       <div class="chat-header">
         <h2>Machinery Servicing Terminal</h2>
         <div class="chat-subtitle">Powered by Vertesia</div>
-      </div>
-      
-      <div class="status-bar" id="statusBar">
-        <div class="status-indicator">
-          <div class="status-dot normal" id="statusDot"></div>
-          <span class="status-text" id="statusText">Checking system...</span>
-        </div>
-        <div class="status-separator"></div>
-        <span class="status-text" id="avgResponseTime">—</span>
-        <div class="activity-count" id="activityCount">Loading...</div>
       </div>
       
       <div class="chat-messages" id="chatMessages">
@@ -621,93 +565,6 @@
           console.error('[Stream] Error:', error);
           onError?.(error);
         }
-      }
-    };
-
-    // ============================================
-    // SYSTEM STATUS (fetches run stats for UX)
-    // ============================================
-    const SystemStatus = {
-      avgResponseTime: null,
-      successRate: null,
-      todayCount: 0,
-      status: 'normal', // normal, slow, issues
-      
-      async load() {
-        try {
-          // Fetch recent runs
-          const runs = await Vertesia.call('/runs?limit=100');
-          
-          if (!runs || runs.length === 0) {
-            this.updateUI();
-            return;
-          }
-          
-          // Calculate today's count
-          const today = new Date().toDateString();
-          this.todayCount = runs.filter(r => 
-            new Date(r.created_at).toDateString() === today
-          ).length;
-          
-          // Calculate avg response time from completed runs
-          const completedRuns = runs.filter(r => r.status === 'completed' && r.execution_time);
-          if (completedRuns.length > 0) {
-            const totalTime = completedRuns.reduce((sum, r) => sum + r.execution_time, 0);
-            this.avgResponseTime = totalTime / completedRuns.length;
-          }
-          
-          // Calculate success rate from recent runs
-          const recentRuns = runs.slice(0, 20);
-          const completed = recentRuns.filter(r => r.status === 'completed').length;
-          const failed = recentRuns.filter(r => r.status === 'failed').length;
-          this.successRate = recentRuns.length > 0 ? (completed / recentRuns.length) * 100 : 100;
-          
-          // Determine system status
-          if (failed > 5 || this.successRate < 50) {
-            this.status = 'issues';
-          } else if (this.avgResponseTime > 30 || this.successRate < 80) {
-            this.status = 'slow';
-          } else {
-            this.status = 'normal';
-          }
-          
-          this.updateUI();
-        } catch (error) {
-          console.error('[SystemStatus] Failed to load:', error);
-          this.updateUI();
-        }
-      },
-      
-      updateUI() {
-        // Status indicator
-        const dot = document.getElementById('statusDot');
-        const text = document.getElementById('statusText');
-        
-        dot.className = 'status-dot ' + this.status;
-        
-        if (this.status === 'normal') {
-          text.textContent = 'All systems normal';
-        } else if (this.status === 'slow') {
-          text.textContent = 'Slower than usual';
-        } else {
-          text.textContent = 'Experiencing issues';
-        }
-        
-        // Avg response time
-        const avgEl = document.getElementById('avgResponseTime');
-        if (this.avgResponseTime) {
-          avgEl.textContent = `~${Math.round(this.avgResponseTime)}s avg response`;
-        } else {
-          avgEl.textContent = '';
-        }
-        
-        // Activity count
-        const activityEl = document.getElementById('activityCount');
-        activityEl.innerHTML = `<strong>${this.todayCount}</strong> queries today`;
-      },
-      
-      getEstimatedTime() {
-        return this.avgResponseTime ? Math.round(this.avgResponseTime) : 15;
       }
     };
 
@@ -1018,10 +875,6 @@
           this.history.push({ role: 'user', content: question });
           if (answer) {
             this.history.push({ role: 'assistant', content: answer });
-            
-            // Update activity count
-            SystemStatus.todayCount++;
-            SystemStatus.updateUI();
           }
 
         } catch (error) {
@@ -1064,19 +917,16 @@
         const container = document.getElementById('chatMessages');
         const div = document.createElement('div');
         div.className = 'message assistant';
-        
-        const estimatedTime = SystemStatus.getEstimatedTime();
-        
         div.innerHTML = `
           <div style="display: flex; align-items: center; gap: 10px;">
             <div class="typing"><span></span><span></span><span></span></div>
-            <span class="status-text" style="font-size: 13px; opacity: 0.8;">Thinking... <span id="typingEstimate">~${estimatedTime}s estimated</span></span>
+            <span class="status-text" style="font-size: 13px; opacity: 0.8;">Thinking...</span>
           </div>
         `;
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
         
-        // Cycle through status messages but keep the estimate visible
+        // Start cycling through status messages
         const messages = [
           "Thinking...",
           "Searching documents...",
@@ -1102,9 +952,9 @@
         
         let lastIndex = -1;
         const statusText = div.querySelector('.status-text');
-        const estimate = `~${estimatedTime}s estimated`;
         
         const cycleStatus = () => {
+          // Pick a random message that's different from the last one
           let newIndex;
           do {
             newIndex = Math.floor(Math.random() * messages.length);
@@ -1112,12 +962,14 @@
           lastIndex = newIndex;
           
           if (statusText) {
-            statusText.innerHTML = `${messages[newIndex]} <span style="opacity: 0.6;">${estimate}</span>`;
+            statusText.textContent = messages[newIndex];
           }
         };
         
+        // Cycle every 2 seconds
         div.statusInterval = setInterval(cycleStatus, 2000);
         
+        // Store original remove function and override to clear interval
         const originalRemove = div.remove.bind(div);
         div.remove = () => {
           clearInterval(div.statusInterval);
@@ -1155,10 +1007,6 @@
     // INIT
     // ============================================
     Documents.load();
-    SystemStatus.load();
-    
-    // Refresh status periodically
-    setInterval(() => SystemStatus.load(), 60000);
     
     // Close modal on Escape
     document.addEventListener('keydown', (e) => {
